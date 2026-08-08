@@ -11,7 +11,7 @@ export default function Header() {
 
   return (
     <div className="space-y-2">
-      <p className="text-zinc-400">
+      <p className="text-1xl text-zinc-400">
         👋 {greeting}
       </p>
 
