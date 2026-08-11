@@ -12,7 +12,7 @@ import type { PlaceSuggestion } from "@/types/places";
 
 
 interface Props {
-
+  mode: "arrive" | "leaveNow"
   leaveTime: string;
 
   location: {
@@ -39,6 +39,7 @@ interface Props {
 
 
 export default function ResultCard({
+  mode,
 
   leaveTime,
 
@@ -183,12 +184,16 @@ export default function ResultCard({
         <div>
 
           <p className="text-sm text-zinc-400">
-            Recommended departure
+            {mode === "arrive"
+              ? "Recommend departure"
+              : "Estimated arrival"}
           </p>
 
 
           <h2 className="text-3xl font-bold">
-            {leaveTime}
+            {mode === "arrive"
+              ? leaveTime
+              : formatTime(arrivalTime)}
           </h2>
 
 
@@ -417,11 +422,6 @@ export default function ResultCard({
       </div>
 
 
-
-
-
-
-
       {/* Arrival Time */}
 
       <div
@@ -433,14 +433,14 @@ export default function ResultCard({
       >
 
         <p className="text-sm text-zinc-400">
-          Arrive by
+          {mode === "arrive" ? "Arrive By" : "Leaving now"}
         </p>
 
 
         <p className="font-semibold text-lg">
-
-          {formatTime(arrivalTime)}
-
+          {mode === "arrive"
+            ? formatTime(arrivalTime)
+            :"Right now"}
         </p>
 
 

@@ -7,11 +7,15 @@ import { Clock3 } from "lucide-react";
 interface ArrivalTimeCardProps {
   value: string;
   onChange: (value: string) => void;
+  mode: "arrive" | "leaveNow";
+  onModeChange: (mode: "arrive" | "leaveNow") => void;
 }
 
 export default function ArrivalTimeCard({
   value,
   onChange,
+  mode,
+  onModeChange,
 }: ArrivalTimeCardProps) {
   const [displayTime, setDisplayTime] = useState("");
 
@@ -63,7 +67,36 @@ export default function ArrivalTimeCard({
 
   return (
     <Card>
-      <div className="space-y-4">
+      <div className="space-y-5">
+
+        {/* Mode buttons */}
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => onModeChange("arrive")}
+            className={`rounded-xl px-4 py-2 text-sm font-medium ${
+              mode === "arrive"
+                ? "bg-amber-500 text-black"
+                : "bg-zinc-800 text-white"
+            }`}
+          >
+            Arrive By
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onModeChange("leaveNow")}
+            className={`rounded-xl px-4 py-2 text-sm font-medium ${
+              mode === "leaveNow"
+                ? "bg-amber-500 text-black"
+                : "bg-zinc-800 text-white"
+            }`}
+          >
+            Leave now
+          </button>
+        </div>
+
+        {/* Header */}
         <div className="flex items-center gap-3">
           <div className="rounded-2xl bg-amber-500/20 p-3">
             <Clock3
@@ -74,23 +107,31 @@ export default function ArrivalTimeCard({
 
           <div>
             <p className="text-sm text-zinc-400">
-              Arrive By
+              {mode === "arrive" ? "Arrive By" : "Leave Now"}
             </p>
 
             <h2 className="font-semibold">
-              What time do you need to arrive?
+              {mode === "arrive"
+                ? "What time do you need to arrive?"
+                : "Travel time be calculated based on the current time"}
             </h2>
           </div>
         </div>
 
-        <label
+        {/* Time picker */}
+        {mode === "arrive" &&(
+          <label
           className="
             relative
-            flex items-center justify-between
+            flex
+            items-center
+            justify-between
             rounded-2xl
-            border border-zinc-800
+            border
+            border-zinc-800
             bg-zinc-950
-            px-5 py-4
+            px-5
+            py-4
             cursor-pointer
             overflow-hidden
           "
@@ -111,13 +152,14 @@ export default function ArrivalTimeCard({
             className="
               absolute
               inset-0
-              w-full
               h-full
-              opacity-0
+              w-full
               cursor-pointer
+              opacity-0
             "
           />
         </label>
+        )}
       </div>
     </Card>
   );
