@@ -132,7 +132,7 @@ export default function Home() {
     const totalMinutes =
       mode === "leaveNow"
       ? trafficMinutes + 0
-      : trafficMinutes + 10;
+      : trafficMinutes + 0;
       
 
     // --------------------------------------------------
