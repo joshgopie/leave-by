@@ -128,8 +128,12 @@ export default function Home() {
       trafficMinutes - normalMinutes;
 
     // Add our 10-minute safety buffer.
+
     const totalMinutes =
-      trafficMinutes + 5;
+      mode === "leaveNow"
+      ? trafficMinutes + 0
+      : trafficMinutes + 10;
+      
 
     // --------------------------------------------------
     // CALCULATE RESULT BASED ON MODE

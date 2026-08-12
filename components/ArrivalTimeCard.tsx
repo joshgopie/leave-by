@@ -113,7 +113,7 @@ export default function ArrivalTimeCard({
             <h2 className="font-semibold">
               {mode === "arrive"
                 ? "What time do you need to arrive?"
-                : "Travel time be calculated based on the current time"}
+                : "Travel duration will be calculated based on your current time"}
             </h2>
           </div>
         </div>
