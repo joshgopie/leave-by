@@ -275,14 +275,8 @@ export default function ResultCard({
 
 
             <p className="font-medium">
-
-              {
-                destination?.fullText ??
-                "Destination"
-              }
-
+              {destination?.fullText?.replace(/, Trinidad and Tobago$/, "") || "Destination"}
             </p>
-
 
           </div>
 
@@ -422,33 +416,12 @@ export default function ResultCard({
       </div>
 
 
-      {/* Arrival Time */}
-
-      <div
-        className="
-        border-t
-        border-zinc-800
-        pt-4
-        "
-      >
-
-        <p className="text-sm text-zinc-400">
-          {mode === "arrive" ? "Arrive By" : "Leaving now"}
-        </p>
-
-
-        <p className="font-semibold text-lg">
-          {mode === "arrive"
-            ? formatTime(arrivalTime)
-            :"Right now"}
-        </p>
-
-
+      
       </div>
 
 
 
-    </div>
+   
 
   );
 

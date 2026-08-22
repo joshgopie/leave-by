@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { reverseGeocode } from "./googleMaps";
 
 interface LocationData {
@@ -16,6 +16,62 @@ export function useLocation() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const refreshLocation = useCallback(() => {
+    if (!navigator.geolocation) {
+      setError("Geolocation not supported");
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const latitude = position.coords.latitude;
+        const longitude = position.coords.longitude;
+
+        try {
+          const data = await reverseGeocode(latitude, longitude);
+
+          const freshLocation: LocationData = {
+            latitude,
+            longitude,
+            address: data.address,
+          };
+
+          setLocation(freshLocation);
+          localStorage.setItem(
+            STORAGE_KEY,
+            JSON.stringify(freshLocation)
+          );
+        } catch {
+          const freshLocation: LocationData = {
+            latitude,
+            longitude,
+          };
+
+          setLocation(freshLocation);
+          localStorage.setItem(
+            STORAGE_KEY,
+            JSON.stringify(freshLocation)
+          );
+        }
+
+        setLoading(false);
+      },
+      () => {
+        setError("Unable to get location");
+        setLoading(false);
+      },
+      {
+        enableHighAccuracy: false,
+        timeout: 5000,
+        maximumAge: 60000,
+      }
+    );
+  }, []);
+
   useEffect(() => {
     // Load cached location immediately
     const cached = localStorage.getItem(STORAGE_KEY);
@@ -30,68 +86,36 @@ export function useLocation() {
       }
     }
 
-    if (!navigator.geolocation) {
-      setError("Geolocation not supported");
-      setLoading(false);
-      return;
+    // Get a fresh location when the hook first loads
+    refreshLocation();
+  }, [refreshLocation]);
+
+
+
+  useEffect(() => {
+  const handleVisibilityChange = () => {
+    if (document.visibilityState === "visible") {
+      refreshLocation();
     }
+  };
 
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const latitude = position.coords.latitude;
-        const longitude = position.coords.longitude;
+  document.addEventListener(
+    "visibilitychange",
+    handleVisibilityChange
+  );
 
-        try {
-          const data = await reverseGeocode(latitude, longitude);
-
-          const freshLocation = {
-            latitude,
-            longitude,
-            address: data.address,
-          };
-
-          setLocation(freshLocation);
-
-          localStorage.setItem(
-            STORAGE_KEY,
-            JSON.stringify(freshLocation)
-          );
-        } catch {
-          const freshLocation = {
-            latitude,
-            longitude,
-          };
-
-          setLocation(freshLocation);
-
-          localStorage.setItem(
-            STORAGE_KEY,
-            JSON.stringify(freshLocation)
-          );
-        }
-
-        setLoading(false);
-      },
-
-      () => {
-        if (!cached) {
-          setError("Unable to get location");
-        }
-
-        setLoading(false);
-      },
-
-      {
-        enableHighAccuracy: false,
-        timeout: 5000,
-        maximumAge: 60000,
-      }
+  return () => {
+    document.removeEventListener(
+      "visibilitychange",
+      handleVisibilityChange
     );
-  }, []);
+  };
+}, [refreshLocation]);
 
   return {
     location,
     loading,
     error,
+    refreshLocation,
   };
 }

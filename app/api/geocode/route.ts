@@ -23,8 +23,12 @@ export async function GET(request: NextRequest) {
     const data = await response.json();
 
 
-    const address =
-      data.results?.[0]?.formatted_address;
+    const interpolatedResult = data.results?.find(
+      (result: any) =>
+      result.geometry?.location_type === "ROOFTOP"
+    );
+
+    const address = interpolatedResult?.formatted_address?.replace(/^[A-Z0-9]+\+\w+,\s*/, "").replace(/, Trinidad and Tobago$/, "");
 
 
     if (!address) {

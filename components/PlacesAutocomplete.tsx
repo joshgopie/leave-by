@@ -102,7 +102,7 @@ export default function PlaceAutocomplete({
               key={place.placeId}
               onClick={() => {
                 setSelected(true);
-                setQuery(place.fullText);
+                setQuery(place.fullText.replace(/, Trinidad and Tobago$/, ""));
                 onSelect(place);
               }}
               className="
@@ -134,7 +134,7 @@ export default function PlaceAutocomplete({
                 </p>
 
                 <p className="text-sm text-zinc-500">
-                  {place.secondaryText}
+                  {place.secondaryText.replace(/, Trinidad and Tobago$/, "")}
                 </p>
 
               </div>
