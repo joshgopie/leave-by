@@ -1,41 +1,66 @@
 "use client";
 
-import { useRef, useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
-// Components
+// --------------------------------------------------
+// COMPONENTS
+// --------------------------------------------------
+
 import Header from "@/components/Header";
 import CurrentLocationCard from "@/components/CurrentLocationCard";
 import DestinationCard from "@/components/DestinationCard";
 import ArrivalTimeCard from "@/components/ArrivalTimeCard";
 import CalculateButton from "@/components/CalculateButton";
 import ResultCard from "@/components/ResultCard";
+import Toast from "@/components/ui/toast";
 
-// Types & Hooks
+// --------------------------------------------------
+// TYPES & HOOKS
+// --------------------------------------------------
+
 import type { PlaceSuggestion } from "@/types/places";
 import { useLocation } from "@/lib/useLocation";
 
-export default function Home() {
-  // --------------------------------------------------
-  // APP STATE
-  // --------------------------------------------------
+// --------------------------------------------------
+// PAGE
+// --------------------------------------------------
 
-  // The destination selected by the user
+export default function Home() {
+
+  // ==================================================
+  // APP STATE
+  // ==================================================
+
+  // Error message shown to the user
+  const [calculationError, setCalculationError] =
+    useState<string | null>(null);
+
+  // Whether the user has successfully calculated
+  // a route at least once
+  const [hasCalculated, setHasCalculated] =
+    useState(false);
+
+  // Destination selected by the user
   const [destination, setDestination] =
     useState<PlaceSuggestion | null>(null);
 
-  // The time the user wants to arrive
-  const [arrivalTime, setArrivalTime] = useState("");
+  // User's desired arrival time
+  const [arrivalTime, setArrivalTime] =
+    useState("");
 
-  // The calculated time the user should leave
-  const [leaveTime, setLeaveTime] = useState("");
+  // Recommended departure time
+  const [leaveTime, setLeaveTime] =
+    useState("");
 
-  // The estimated arrival time when using Leave Now mode
+  // Estimated arrival time for Leave Now mode
   const [estimatedArrivalTime, setEstimatedArrivalTime] =
     useState("");
 
-  // The current calculation mode.
-  // "arrive" = user chooses an arrival time
-  // "leaveNow" = user wants to leave immediately
+  // Current calculation mode
   const [mode, setMode] =
     useState<"arrive" | "leaveNow">("arrive");
 
@@ -46,12 +71,19 @@ export default function Home() {
     trafficDelay: 0,
   });
 
-  // Used to automatically scroll to the result
-  const resultRef = useRef<HTMLDivElement | null>(null);
+  // Used to scroll to the result
+  const resultRef =
+    useRef<HTMLDivElement | null>(null);
 
-  // --------------------------------------------------
+  // Used to remember whether a route
+  // has already been calculated
+  const hasCalculatedRef =
+    useRef(false);
+
+
+  // ==================================================
   // CURRENT LOCATION
-  // --------------------------------------------------
+  // ==================================================
 
   const {
     location,
@@ -59,97 +91,164 @@ export default function Home() {
     error,
   } = useLocation();
 
-  // --------------------------------------------------
+
+  // ==================================================
   // CALCULATE ROUTE
-  // --------------------------------------------------
+  // ==================================================
 
   async function calculateLeaveTime() {
-    // We need a location and destination
-    // for both modes.
-    if (!location || !destination) {
+
+    // ----------------------------------------------
+    // VALIDATION
+    // ----------------------------------------------
+
+    if (!location) {
+
+      setCalculationError(
+        "We can't calculate your route because your current location is unavailable."
+      );
+
       return;
     }
+
+    if (!destination) {
+
+      setCalculationError(
+        "Please select a destination."
+      );
+
+      return;
+    }
+
+
+    // Clear previous error
+    setCalculationError(null);
 
     // Clear previous results
     setLeaveTime("");
     setEstimatedArrivalTime("");
 
-    // Ask our Next.js API route for the route information.
-    const response = await fetch("/api/routes", {
-      method: "POST",
 
-      headers: {
-        "Content-Type": "application/json",
-      },
+    // ----------------------------------------------
+    // REQUEST ROUTE FROM OUR API
+    // ----------------------------------------------
 
-      body: JSON.stringify({
-        origin: {
-          latitude: location.latitude,
-          longitude: location.longitude,
+    const response = await fetch(
+      "/api/routes",
+      {
+        method: "POST",
+
+        headers: {
+          "Content-Type": "application/json",
         },
 
-        destinationPlaceId:
-          destination.placeId,
-      }),
-    });
+        body: JSON.stringify({
+          origin: {
+            latitude: location.latitude,
+            longitude: location.longitude,
+          },
 
-    // Convert Google's response into JSON.
-    const data = await response.json();
+          destinationPlaceId:
+            destination.placeId,
+        }),
+      }
+    );
 
-    console.log("Route:", data);
 
-    // Make sure Google returned the information we need.
-    if (!data.duration || !data.staticDuration) {
-      console.error("Invalid route response");
+    // ----------------------------------------------
+    // READ API RESPONSE
+    // ----------------------------------------------
+
+    const data =
+      await response.json();
+
+
+    // ----------------------------------------------
+    // VALIDATE ROUTE RESPONSE
+    // ----------------------------------------------
+
+    if (
+      !data.duration ||
+      !data.staticDuration
+    ) {
+
+      console.error(
+        "Invalid route response"
+      );
+
       return;
     }
 
-    // --------------------------------------------------
-    // CALCULATE TRAVEL TIME
-    // --------------------------------------------------
 
-    // Google returns duration as something like:
+    // A successful route now exists
+    setHasCalculated(true);
+
+    // Remember that we have calculated
+    hasCalculatedRef.current = true;
+
+
+    // ==================================================
+    // TRAVEL TIME
+    // ==================================================
+
+    // Google returns durations like:
     // "1800s"
+
     const trafficSeconds =
-      Number(data.duration.replace("s", ""));
+      Number(
+        data.duration.replace("s", "")
+      );
 
     const normalSeconds =
-      Number(data.staticDuration.replace("s", ""));
+      Number(
+        data.staticDuration.replace("s", "")
+      );
 
-    // Convert seconds into minutes.
+
+    // Convert seconds to minutes
+
     const trafficMinutes =
-      Math.ceil(trafficSeconds / 60);
+      Math.ceil(
+        trafficSeconds / 60
+      );
 
     const normalMinutes =
-      Math.ceil(normalSeconds / 60);
+      Math.ceil(
+        normalSeconds / 60
+      );
 
-    // How much additional time traffic is adding.
+
+    // Calculate traffic delay
+
     const trafficDelay =
       trafficMinutes - normalMinutes;
 
-    // Add our 10-minute safety buffer.
+
+    // ==================================================
+    // TOTAL TRAVEL TIME
+    // ==================================================
 
     const totalMinutes =
-      mode === "leaveNow"
-      ? trafficMinutes + 0
-      : trafficMinutes + 0;
-      
+      trafficMinutes;
 
-    // --------------------------------------------------
-    // CALCULATE RESULT BASED ON MODE
-    // --------------------------------------------------
+
+    // ==================================================
+    // CALCULATE RESULT
+    // ==================================================
 
     if (mode === "arrive") {
+
       // ----------------------------------------------
-      // ARRIVE BY
+      // ARRIVE BY MODE
       // ----------------------------------------------
 
       const [hours, minutes] =
         arrivalTime.split(":");
 
-      // Create a Date object using today's date
-      // and the arrival time selected by the user.
-      const arrival = new Date();
+
+      const arrival =
+        new Date();
+
 
       arrival.setHours(
         Number(hours),
@@ -158,40 +257,51 @@ export default function Home() {
         0
       );
 
-      // Subtract the travel time + safety buffer.
-      const leave = new Date(
-        arrival.getTime() -
+
+      // Subtract travel time
+
+      const leave =
+        new Date(
+          arrival.getTime() -
           totalMinutes * 60000
+        );
+
+
+      // Format departure time
+
+      const formattedLeave =
+        leave.toLocaleTimeString(
+          [],
+          {
+            hour: "numeric",
+            minute: "2-digit",
+          }
+        );
+
+
+      setLeaveTime(
+        formattedLeave
       );
 
-      // Convert the result into a normal time
-      // such as "3:25 PM".
-      const formattedLeave =
-        leave.toLocaleTimeString([], {
-          hour: "numeric",
-          minute: "2-digit",
-        });
-
-      // Save recommended departure time.
-      setLeaveTime(formattedLeave);
-
     } else {
+
       // ----------------------------------------------
-      // LEAVE NOW
+      // LEAVE NOW MODE
       // ----------------------------------------------
 
-      // Get the current time.
-      const now = new Date();
+      const now =
+        new Date();
 
-      // Add travel time + safety buffer.
+
       const estimatedArrival =
         new Date(
           now.getTime() +
-            totalMinutes * 60000
+          totalMinutes * 60000
         );
 
-      // Save the estimated arrival time
-      // in 24-hour format.
+
+      // Format estimated arrival
+
       setEstimatedArrivalTime(
         `${estimatedArrival
           .getHours()
@@ -202,63 +312,112 @@ export default function Home() {
           .padStart(2, "0")}`
       );
 
-      // There is no departure time because
-      // the user is leaving now.
+
+      // User is leaving now
+
       setLeaveTime("Now");
     }
 
-    // --------------------------------------------------
+
+    // ==================================================
     // SAVE ROUTE INFORMATION
-    // --------------------------------------------------
+    // ==================================================
 
     setRouteInfo({
-      travelMinutes: trafficMinutes,
 
-      distanceKm: Number(
-        (data.distanceMeters / 1000).toFixed(1)
-      ),
+      travelMinutes:
+        trafficMinutes,
+
+      distanceKm:
+        Number(
+          (
+            data.distanceMeters / 1000
+          ).toFixed(1)
+        ),
 
       trafficDelay,
     });
 
-    // --------------------------------------------------
+
+    // ==================================================
     // SCROLL TO RESULT
-    // --------------------------------------------------
+    // ==================================================
 
     setTimeout(() => {
+
       resultRef.current?.scrollIntoView({
         behavior: "smooth",
         block: "center",
       });
+
     }, 100);
   }
 
-  // --------------------------------------------------
+
+  // ==================================================
+  // LIVE LOCATION UPDATE
+  // ==================================================
+
+  useEffect(() => {
+
+    // Don't do anything until the user
+    // has calculated a route.
+
+    if (!hasCalculatedRef.current) {
+      return;
+    }
+
+
+    // Don't calculate if location isn't available
+
+    if (!location) {
+      return;
+    }
+
+
+    // Recalculate the route using
+    // the new location
+
+    calculateLeaveTime();
+
+  }, [location]);
+
+
+  // ==================================================
   // PAGE UI
-  // --------------------------------------------------
+  // ==================================================
 
   return (
+
     <main>
+
       <div className="mx-auto max-w-xl space-y-4 p-6">
 
-        {/* App header */}
+        {/* Header */}
+
         <Header />
 
-        {/* Current GPS location */}
+
+        {/* Current location */}
+
         <CurrentLocationCard
           location={location}
           loading={loading}
           error={error}
         />
 
-        {/* Destination search */}
+
+        {/* Destination */}
+
         <DestinationCard
           onSelect={(place) => {
             setDestination(place);
           }}
         />
 
-        {/* Arrival / Leave Now mode */}
+
+        {/* Arrival / Leave Now */}
+
         <ArrivalTimeCard
           value={arrivalTime}
           onChange={setArrivalTime}
@@ -266,13 +425,32 @@ export default function Home() {
           onModeChange={setMode}
         />
 
-        {/* Calculate button */}
+
+        {/* Calculate */}
+
         <CalculateButton
           onClick={calculateLeaveTime}
         />
 
-        {/* Result */}
+
+        {/* Error notification */}
+
+        {calculationError && (
+
+          <Toast
+            message={calculationError}
+            onClose={() =>
+              setCalculationError(null)
+            }
+          />
+
+        )}
+
+
+        {/* Results */}
+
         {leaveTime && (
+
           <div ref={resultRef}>
 
             <ResultCard
@@ -289,9 +467,11 @@ export default function Home() {
             />
 
           </div>
+
         )}
 
       </div>
+
     </main>
   );
 }

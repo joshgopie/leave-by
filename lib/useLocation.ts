@@ -1,121 +1,318 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { reverseGeocode } from "./googleMaps";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { reverseGeocode } from "@/lib/googleMaps";
 
-interface LocationData {
+// --------------------------------------------------
+// TYPES
+// --------------------------------------------------
+
+export interface UserLocation {
   latitude: number;
   longitude: number;
-  address?: string;
+  address: string;
 }
 
-const STORAGE_KEY = "leave-by-location";
+// --------------------------------------------------
+// CONFIGURATION
+// --------------------------------------------------
+
+const MOVEMENT_THRESHOLD_METERS = 50;
+
+// --------------------------------------------------
+// DISTANCE CALCULATION
+// --------------------------------------------------
+
+function getDistanceInMeters(
+  latitude1: number,
+  longitude1: number,
+  latitude2: number,
+  longitude2: number
+): number {
+  const earthRadius = 6371000;
+
+  const latitudeDifference =
+    (latitude2 - latitude1) *
+    Math.PI /
+    180;
+
+  const longitudeDifference =
+    (longitude2 - longitude1) *
+    Math.PI /
+    180;
+
+  const a =
+    Math.sin(latitudeDifference / 2) ** 2 +
+    Math.cos(latitude1 * Math.PI / 180) *
+    Math.cos(latitude2 * Math.PI / 180) *
+    Math.sin(longitudeDifference / 2) ** 2;
+
+  const c =
+    2 *
+    Math.atan2(
+      Math.sqrt(a),
+      Math.sqrt(1 - a)
+    );
+
+  return earthRadius * c;
+}
+
+// --------------------------------------------------
+// HOOK
+// --------------------------------------------------
 
 export function useLocation() {
-  const [location, setLocation] = useState<LocationData | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+
+  // ==================================================
+  // STATE
+  // ==================================================
+
+  const [location, setLocation] =
+    useState<UserLocation | null>(null);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [error, setError] =
+    useState<string | null>(null);
+
+
+  // ==================================================
+  // REFS
+  // ==================================================
+
+  // Stores the last location that was considered
+  // meaningful enough to update the application.
+  const previousCoordinates = useRef<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
+
+  // Prevents multiple GPS requests from running
+  // at the same time.
+  const requestInProgress = useRef(false);
+
+
+  // ==================================================
+  // REFRESH LOCATION
+  // ==================================================
 
   const refreshLocation = useCallback(() => {
+
+    // ----------------------------------------------
+    // Browser support
+    // ----------------------------------------------
+
     if (!navigator.geolocation) {
-      setError("Geolocation not supported");
+
+      setError(
+        "Location services are not supported by this browser."
+      );
+
       setLoading(false);
+
       return;
     }
+
+
+    // ----------------------------------------------
+    // Prevent duplicate requests
+    // ----------------------------------------------
+
+    if (requestInProgress.current) {
+      return;
+    }
+
+    requestInProgress.current = true;
 
     setLoading(true);
     setError(null);
 
+
+    // ----------------------------------------------
+    // Get current GPS position
+    // ----------------------------------------------
+
     navigator.geolocation.getCurrentPosition(
+
       async (position) => {
-        const latitude = position.coords.latitude;
-        const longitude = position.coords.longitude;
 
         try {
-          const data = await reverseGeocode(latitude, longitude);
 
-          const freshLocation: LocationData = {
+          const latitude =
+            position.coords.latitude;
+
+          const longitude =
+            position.coords.longitude;
+
+
+          // ==================================================
+          // CHECK FOR MEANINGFUL MOVEMENT
+          // ==================================================
+
+          if (previousCoordinates.current) {
+
+            const distance =
+              getDistanceInMeters(
+                previousCoordinates.current.latitude,
+                previousCoordinates.current.longitude,
+                latitude,
+                longitude
+              );
+
+
+            // ----------------------------------------------
+            // Ignore insignificant GPS movement
+            // ----------------------------------------------
+
+            if (
+              distance <
+              MOVEMENT_THRESHOLD_METERS
+            ) {
+
+              return;
+            }
+          }
+
+
+          // ==================================================
+          // REVERSE GEOCODE
+          // ==================================================
+
+          const data =
+            await reverseGeocode(
+              latitude,
+              longitude
+            );
+
+
+          // ==================================================
+          // SAVE NEW COORDINATES
+          // ==================================================
+
+          previousCoordinates.current = {
+            latitude,
+            longitude,
+          };
+
+
+          // ==================================================
+          // UPDATE LOCATION
+          // ==================================================
+
+          setLocation({
             latitude,
             longitude,
             address: data.address,
-          };
+          });
 
-          setLocation(freshLocation);
-          localStorage.setItem(
-            STORAGE_KEY,
-            JSON.stringify(freshLocation)
-          );
-        } catch {
-          const freshLocation: LocationData = {
-            latitude,
-            longitude,
-          };
+        } catch (error) {
 
-          setLocation(freshLocation);
-          localStorage.setItem(
-            STORAGE_KEY,
-            JSON.stringify(freshLocation)
+          console.error(
+            "Location refresh failed:",
+            error
           );
+
+          setError(
+            "Unable to determine your current location."
+          );
+
+        } finally {
+
+          requestInProgress.current = false;
+
+          setLoading(false);
         }
+      },
+
+
+      // ==================================================
+      // GPS ERROR
+      // ==================================================
+
+      (error) => {
+
+        console.error(
+          "Geolocation error:",
+          error
+        );
+
+        requestInProgress.current = false;
+
+        setError(
+          "Unable to access your current location."
+        );
 
         setLoading(false);
       },
-      () => {
-        setError("Unable to get location");
-        setLoading(false);
-      },
+
+
+      // ==================================================
+      // GPS OPTIONS
+      // ==================================================
+
       {
-        enableHighAccuracy: false,
-        timeout: 5000,
-        maximumAge: 60000,
+        enableHighAccuracy: true,
+        timeout: 30000,
+        maximumAge: 0,
       }
     );
+
   }, []);
 
+
+  // ==================================================
+  // INITIAL LOCATION
+  // ==================================================
+
   useEffect(() => {
-    // Load cached location immediately
-    const cached = localStorage.getItem(STORAGE_KEY);
 
-    if (cached) {
-      try {
-        const parsed: LocationData = JSON.parse(cached);
-        setLocation(parsed);
-        setLoading(false);
-      } catch {
-        localStorage.removeItem(STORAGE_KEY);
-      }
-    }
-
-    // Get a fresh location when the hook first loads
     refreshLocation();
+
   }, [refreshLocation]);
 
 
+  // ==================================================
+  // REFRESH WHEN APP BECOMES ACTIVE
+  // ==================================================
 
   useEffect(() => {
-  const handleVisibilityChange = () => {
-    if (document.visibilityState === "visible") {
-      refreshLocation();
+
+    function handleVisibilityChange() {
+
+      if (
+        document.visibilityState === "visible"
+      ) {
+
+        refreshLocation();
+      }
     }
-  };
 
-  document.addEventListener(
-    "visibilitychange",
-    handleVisibilityChange
-  );
 
-  return () => {
-    document.removeEventListener(
+    document.addEventListener(
       "visibilitychange",
       handleVisibilityChange
     );
-  };
-}, [refreshLocation]);
+
+
+    return () => {
+
+      document.removeEventListener(
+        "visibilitychange",
+        handleVisibilityChange
+      );
+    };
+
+  }, [refreshLocation]);
+
+
+  // ==================================================
+  // RETURN
+  // ==================================================
 
   return {
     location,
     loading,
     error,
-    refreshLocation,
   };
 }
