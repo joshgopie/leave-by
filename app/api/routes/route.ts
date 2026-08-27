@@ -9,6 +9,7 @@ export async function POST(request: NextRequest) {
     const {
       origin,
       destinationPlaceId,
+      departureTime,
     } = body;
 
 
@@ -58,6 +59,9 @@ export async function POST(request: NextRequest) {
 
           routingPreference:
             "TRAFFIC_AWARE",
+
+          departureTime: 
+            departureTime,
 
         }),
       }

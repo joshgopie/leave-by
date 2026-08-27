@@ -161,6 +161,8 @@ export function useLocation() {
               );
 
 
+
+
             // ----------------------------------------------
             // Ignore insignificant GPS movement
             // ----------------------------------------------
@@ -283,6 +285,7 @@ export function useLocation() {
       if (
         document.visibilityState === "visible"
       ) {
+
 
         refreshLocation();
       }

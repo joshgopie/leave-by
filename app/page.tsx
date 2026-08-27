@@ -51,6 +51,9 @@ export default function Home() {
   // User's desired arrival time
   const [arrivalTime, setArrivalTime] =
     useState("");
+  // User's desired arrival time
+  const [arrivalDate, setArrivalDate] =
+  useState("");
 
   // Recommended departure time
   const [leaveTime, setLeaveTime] =
@@ -120,6 +123,45 @@ export default function Home() {
       return;
     }
 
+    if (mode === "arrive") {
+      if (!arrivalDate || !arrivalTime) {
+        setCalculationError(
+          "Please select an arrival date and time."
+        );
+
+      return;
+      }
+    }
+
+
+  const [year, month, day] =
+  arrivalDate.split("-").map(Number);
+
+  const [hours, minutes] =
+    arrivalTime.split(":").map(Number);
+
+  const requestedArrival =
+    new Date(
+      year,
+      month - 1,
+      day,
+      hours,
+      minutes,
+      0,
+      0
+    );
+
+  const now = new Date();
+
+  if (requestedArrival <= now) {
+
+    setCalculationError(
+      "That arrival time has already passed. Please choose a future date and time."
+    );
+
+    return;
+  }
+
 
     // Clear previous error
     setCalculationError(null);
@@ -132,6 +174,9 @@ export default function Home() {
     // ----------------------------------------------
     // REQUEST ROUTE FROM OUR API
     // ----------------------------------------------
+
+  const arrivalDateTime =
+    `${arrivalDate}T${arrivalTime}:00-04:00`;
 
     const response = await fetch(
       "/api/routes",
@@ -150,6 +195,9 @@ export default function Home() {
 
           destinationPlaceId:
             destination.placeId,
+
+          departureTime:
+            arrivalDateTime
         }),
       }
     );
@@ -423,6 +471,7 @@ export default function Home() {
           onChange={setArrivalTime}
           mode={mode}
           onModeChange={setMode}
+          onDateChange={setArrivalDate}
         />
 
 
