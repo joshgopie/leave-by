@@ -24,10 +24,10 @@ export default function DestinationCard({
 
           <div className="flex items-center gap-3">
 
-            <div className="rounded-2xl bg-green-500/20 p-3">
+            <div className="rounded-2xl bg-blue-500/20 p-3">
 
               <MapPin
-                className="text-green-400"
+                className="text-blue-200/50"
                 size={22}
               />
 

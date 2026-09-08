@@ -29,6 +29,7 @@ interface Props {
     travelMinutes: number;
     distanceKm: number;
     trafficDelay: number;
+    description: string;
   };
 }
 
@@ -40,135 +41,96 @@ export default function ResultCard({
   arrivalTime,
   routeInfo,
 }: Props) {
-  // ==================================================
-  // TRAFFIC STATUS
-  // ==================================================
+  const traffic =
+    routeInfo.trafficDelay >= 15
+      ? { label: "Heavy traffic", icon: "🔴" }
+      : routeInfo.trafficDelay >= 5
+        ? { label: "Moderate traffic", icon: "🟡" }
+        : { label: "Traffic looks good", icon: "🟢" };
 
-  function getTrafficStatus() {
-    if (routeInfo.trafficDelay >= 15) {
-      return {
-        label: "Heavy traffic",
-        message:
-          `+${routeInfo.trafficDelay} minutes delay`,
-        icon: "🔴",
-      };
-    }
+  const resultTime =
+    mode === "arrive" ? leaveTime : arrivalTime;
 
-    if (routeInfo.trafficDelay >= 5) {
-      return {
-        label: "Moderate traffic",
-        message:
-          `+${routeInfo.trafficDelay} minutes delay`,
-        icon: "🟡",
-      };
-    }
+  const handleWazeNavigation = () => {
+    if (!destination) return;
 
-    return {
-      label: "Traffic looks good",
-      message: "No major delays",
-      icon: "🟢",
-    };
-  }
+    const wazeUrl = `https://www.waze.com/ul?q=${encodeURIComponent(
+      destination.fullText
+    )}&navigate=yes`;
 
-  const trafficStatus =
-    getTrafficStatus();
-
-  // ==================================================
-  // RENDER
-  // ==================================================
+    window.location.href = wazeUrl;
+  };
 
   return (
-    <div
-      className="
-        rounded-2xl
-        border border-zinc-800
-        bg-zinc-950
-        p-5
-        space-y-5
-        shadow-xl
-      "
-    >
-      {/* ==================================================
-          HEADER
-      ================================================== */}
+    <div className="space-y-5 rounded-3xl border border-zinc-800 bg-zinc-950 p-5 shadow-xl">
 
-      <div className="flex items-center gap-3">
-        <div
-          className="
-            rounded-2xl
-            bg-blue-500/20
-            p-3
-          "
-        >
-          <Car
-            size={24}
-            className="text-blue-400"
-          />
-        </div>
+      {/* RESULT */}
+      <div className="space-y-1 text-center">
+        <p className="text-sm text-zinc-400">
+          {mode === "arrive"
+            ? "You should leave"
+            : "Estimated arrival"}
+        </p>
 
-        <div>
+        <h2 className="text-5xl font-bold tracking-tight">
+          {resultTime}
+        </h2>
+
+        {mode === "arrive" && (
           <p className="text-sm text-zinc-400">
-            {mode === "arrive"
-              ? "Recommend departure"
-              : "Estimated arrival"}
+            Arrive by {arrivalTime}
           </p>
-
-          <h2 className="text-3xl font-bold">
-            {mode === "arrive"
-              ? leaveTime
-              : arrivalTime}
-          </h2>
-        </div>
+        )}
       </div>
 
-      {/* ==================================================
-          ROUTE DETAILS
-      ================================================== */}
+      {/* ROUTE */}
+      <div className="space-y-4 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
 
-      <div className="space-y-4">
-
-        {/* ==================================================
-            FROM
-        ================================================== */}
-
-        <div className="flex gap-3">
+        {/* FROM */}
+        <div className="flex items-start gap-3">
           <MapPin
             size={18}
-            className="
-              text-green-400
-              mt-1
-              shrink-0
-            "
+            className="mt-1 shrink-0 text-blue-200/50"
           />
 
-          <div>
-            <p className="text-sm text-zinc-400">
+          <div className="min-w-0">
+            <p className="text-xs text-zinc-500">
               From
             </p>
 
-            <p className="font-medium">
-              {location?.address ??
-                "Current location"}
+            <p className="truncate font-medium">
+              {location?.address ?? "Current location"}
             </p>
           </div>
         </div>
 
-        {/* ==================================================
-            DESTINATION
-        ================================================== */}
-
-        <div className="flex gap-3">
-          <MapPin
+        {/* VIA */}
+        <div className="flex items-start gap-3">
+          <Car
             size={18}
-            className="
-              text-blue-400
-              mt-1
-              shrink-0
-            "
+            className="mt-1 shrink-0 text-blue-200/50"
           />
 
-          <div>
-            <p className="text-sm text-zinc-400">
+          <div className="min-w-0">
+            <p className="text-xs text-zinc-500">
+              Via
+            </p>
+
+            <p className="text-sm leading-relaxed text-zinc-300">
+              {routeInfo.description || "Route unavailable"}
+            </p>
+          </div>
+        </div>
+
+        {/* TO */}
+        <div className="flex items-start gap-3">
+          <MapPin
+            size={18}
+            className="mt-1 shrink-0 text-blue-200/50"
+          />
+
+          <div className="min-w-0">
+            <p className="text-xs text-zinc-500">
               To
             </p>
 
@@ -176,95 +138,83 @@ export default function ResultCard({
               {destination?.fullText?.replace(
                 /, Trinidad and Tobago$/,
                 ""
-              ) ||
-                "Destination"}
-            </p>
-          </div>
-        </div>
-
-        {/* ==================================================
-            TRAVEL TIME
-        ================================================== */}
-
-        <div className="flex gap-3">
-          <Clock
-            size={18}
-            className="
-              text-yellow-400
-              mt-1
-              shrink-0
-            "
-          />
-
-          <div>
-            <p className="text-sm text-zinc-400">
-              Travel time
-            </p>
-
-            <p className="font-medium">
-              {routeInfo.travelMinutes} minutes
-            </p>
-          </div>
-        </div>
-
-        {/* ==================================================
-            DISTANCE
-        ================================================== */}
-
-        <div className="flex gap-3">
-          <Navigation
-            size={18}
-            className="
-              text-purple-400
-              mt-1
-              shrink-0
-            "
-          />
-
-          <div>
-            <p className="text-sm text-zinc-400">
-              Distance
-            </p>
-
-            <p className="font-medium">
-              {routeInfo.distanceKm} km
-            </p>
-          </div>
-        </div>
-
-        {/* ==================================================
-            TRAFFIC
-        ================================================== */}
-
-        <div
-          className="
-            flex
-            items-center
-            gap-3
-            rounded-xl
-            bg-zinc-900
-            border border-zinc-800
-            p-3
-          "
-        >
-          <AlertTriangle
-            size={18}
-            className="text-yellow-400"
-          />
-
-          <div>
-            <p className="font-medium">
-              {trafficStatus.icon}{" "}
-              {trafficStatus.label}
-            </p>
-
-            <p className="text-sm text-zinc-400">
-              {trafficStatus.message}
+              ) || "Destination"}
             </p>
           </div>
         </div>
 
       </div>
+
+      {/* TRIP INFO */}
+      <div className="grid grid-cols-2 gap-3">
+
+        {/* TRAVEL TIME */}
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
+          <Clock
+            size={18}
+            className="mb-2 text-blue-200/50"
+          />
+
+          <p className="text-xs text-zinc-500">
+            Travel time
+          </p>
+
+          <p className="font-semibold">
+            {routeInfo.travelMinutes} min
+          </p>
+        </div>
+
+        {/* DISTANCE */}
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
+          <Navigation
+            size={18}
+            className="mb-2 text-blue-200/50"
+          />
+
+          <p className="text-xs text-zinc-500">
+            Distance
+          </p>
+
+          <p className="font-semibold">
+            {routeInfo.distanceKm} km
+          </p>
+        </div>
+
+      </div>
+
+      {/* TRAFFIC */}
+      <div className="flex items-center gap-3 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
+
+        <AlertTriangle
+          size={18}
+          className="shrink-0 text-yellow-400"
+        />
+
+        <div>
+          <p className="font-medium">
+            {traffic.icon} {traffic.label}
+          </p>
+
+          <p className="text-sm text-zinc-400">
+            {routeInfo.trafficDelay > 0
+              ? `+${routeInfo.trafficDelay} min delay`
+              : "No major delays"}
+          </p>
+        </div>
+
+      </div>
+
+      {/* WAZE */}
+      <button
+        type="button"
+        onClick={handleWazeNavigation}
+        disabled={!destination}
+        className="flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 py-4 font-semibold transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <Car size={20} />
+        Navigate with Waze
+      </button>
+
     </div>
   );
 }

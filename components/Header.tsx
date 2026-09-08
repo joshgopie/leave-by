@@ -1,20 +1,26 @@
+import { Sun,Moon } from "lucide-react";
+
 export default function Header() {
   const hour = new Date().getHours();
 
-  const greeting =
+  /*const greeting =
     hour < 12
-      ? "Good Morning"
+      ? <>
+        Good Morning, Joshua
+      </>
       : hour < 18
       ? "Good Afternoon"
-      : "Good Night"
+      : (<>
+          Good Night, Joshua 
+
+      </>
+      );*/
+  
+
 
 
   return (
     <div className="space-y-2">
-      <p className="text-1xl text-zinc-400">
-        👋 {greeting}
-      </p>
-
       <h1 className="text-5xl font-bold tracking-tight">
         Leave By 
       </h1>

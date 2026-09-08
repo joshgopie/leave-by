@@ -29,7 +29,7 @@ export default function CurrentLocationCard({
 
         <div className="rounded-2xl bg-blue-500/20 p-3">
           <LocateFixed
-            className="text-blue-400"
+            className="text-blue-200/50"
             size={22}
           />
         </div>
@@ -38,7 +38,7 @@ export default function CurrentLocationCard({
         <div className="flex-1">
 
           <p className="text-sm text-zinc-400">
-            Current Location
+            My Current Location
           </p>
 
 

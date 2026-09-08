@@ -1,28 +1,33 @@
 "use client";
 
-/* ============================================================
-   IMPORTS
-============================================================ */
+import {
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
-import { useState } from "react";
-import { Search, MapPin, X } from "lucide-react";
+import {
+  Search,
+  MapPin,
+  X,
+  ArrowLeft,
+  Clock3,
+} from "lucide-react";
 
 import { usePlaceSearch } from "@/lib/usePlaceSearch";
 import type { PlaceSuggestion } from "@/types/places";
 
-
-/* ============================================================
-   TYPES
-============================================================ */
 
 interface Props {
   onSelect: (place: PlaceSuggestion) => void;
 }
 
 
-/* ============================================================
-   COMPONENT
-============================================================ */
+const RECENT_STORAGE_KEY =
+  "leave-by-recent-destinations";
+
+const MAX_RECENT_DESTINATIONS = 8;
+
 
 export default function PlaceAutocomplete({
   onSelect,
@@ -32,39 +37,27 @@ export default function PlaceAutocomplete({
      STATE
   ========================================================== */
 
-  /*
-    The text currently inside the search box.
-  */
   const [query, setQuery] = useState("");
 
-
-  /*
-    Tracks whether the user has selected a destination.
-
-    When true, we stop searching because the user has
-    already selected a destination.
-  */
   const [selected, setSelected] = useState(false);
+
+  const [isOpen, setIsOpen] = useState(false);
+
+  const [recentDestinations, setRecentDestinations] =
+    useState<PlaceSuggestion[]>([]);
+
+
+  /* ==========================================================
+     REF
+  ========================================================== */
+
+  const searchInputRef =
+    useRef<HTMLInputElement>(null);
 
 
   /* ==========================================================
      GOOGLE PLACES SEARCH
   ========================================================== */
-
-  /*
-    Our existing custom hook handles the Google Places
-    autocomplete search.
-
-    When a place is selected:
-
-      selected = true
-      query is temporarily ignored
-
-    When the user starts typing again:
-
-      selected = false
-      searching resumes
-  */
 
   const {
     suggestions,
@@ -75,20 +68,208 @@ export default function PlaceAutocomplete({
 
 
   /* ==========================================================
+     LOAD RECENT DESTINATIONS
+  ========================================================== */
+
+  useEffect(() => {
+
+    try {
+
+      const stored =
+        localStorage.getItem(
+          RECENT_STORAGE_KEY
+        );
+
+      if (!stored) return;
+
+      const parsed: PlaceSuggestion[] =
+        JSON.parse(stored);
+
+      if (Array.isArray(parsed)) {
+        setRecentDestinations(parsed);
+      }
+
+    } catch {
+
+      setRecentDestinations([]);
+
+    }
+
+  }, []);
+
+
+  /* ==========================================================
+     OPEN SEARCH
+  ========================================================== */
+
+  function openSearch() {
+
+    setIsOpen(true);
+
+    setSelected(false);
+
+    /*
+      IMPORTANT:
+
+      The input is already mounted in the DOM.
+
+      We focus it immediately as part of the
+      user's tap interaction.
+
+      This is the important difference for iOS.
+    */
+
+    searchInputRef.current?.focus();
+
+  }
+
+
+  /* ==========================================================
+     CLOSE SEARCH
+  ========================================================== */
+
+  function closeSearch() {
+
+    /*
+      Remove focus first.
+    */
+
+    searchInputRef.current?.blur();
+
+    setIsOpen(false);
+
+    setQuery("");
+
+    setSelected(true);
+
+  }
+
+
+  /* ==========================================================
      CLEAR SEARCH
   ========================================================== */
 
-  /*
-    Clears the search field completely.
-
-    We also set selected to false so the user can immediately
-    start searching for another destination.
-  */
-
   function handleClear() {
+
     setQuery("");
+
     setSelected(false);
+
+    /*
+      Keep the keyboard active.
+    */
+
+    searchInputRef.current?.focus();
+
   }
+
+
+  /* ==========================================================
+     SAVE RECENT DESTINATION
+  ========================================================== */
+
+  function saveRecentDestination(
+    place: PlaceSuggestion
+  ) {
+
+    setRecentDestinations((current) => {
+
+      const filtered =
+        current.filter(
+          (item) =>
+            item.placeId !== place.placeId
+        );
+
+
+      const updated = [
+        place,
+        ...filtered,
+      ].slice(
+        0,
+        MAX_RECENT_DESTINATIONS
+      );
+
+
+      try {
+
+        localStorage.setItem(
+          RECENT_STORAGE_KEY,
+          JSON.stringify(updated)
+        );
+
+      } catch {
+        // Ignore localStorage errors
+      }
+
+
+      return updated;
+
+    });
+
+  }
+
+
+  /* ==========================================================
+     SELECT DESTINATION
+  ========================================================== */
+
+  function handleSelect(
+    place: PlaceSuggestion
+  ) {
+
+    saveRecentDestination(place);
+
+
+    setQuery(
+      place.fullText.replace(
+        /, Trinidad and Tobago$/,
+        ""
+      )
+    );
+
+
+    setSelected(true);
+
+
+    onSelect(place);
+
+
+    /*
+      Blur before closing.
+    */
+
+    searchInputRef.current?.blur();
+
+    setIsOpen(false);
+
+  }
+
+
+  /* ==========================================================
+     BODY SCROLL LOCK
+  ========================================================== */
+
+  useEffect(() => {
+
+    if (!isOpen) return;
+
+
+    const originalOverflow =
+      document.body.style.overflow;
+
+
+    document.body.style.overflow =
+      "hidden";
+
+
+    return () => {
+
+      document.body.style.overflow =
+        originalOverflow;
+
+    };
+
+  }, [isOpen]);
 
 
   /* ==========================================================
@@ -100,12 +281,56 @@ export default function PlaceAutocomplete({
 
 
       {/* ======================================================
-          SEARCH INPUT
+          ALWAYS-MOUNTED SEARCH INPUT
+
+          IMPORTANT:
+
+          This input exists in the DOM even before the
+          full-screen search is opened.
+
+          We only visually hide it when the search is closed.
       ====================================================== */}
 
-      <div
+      <input
+        ref={searchInputRef}
+        value={query}
+        onChange={(e) => {
+
+          setSelected(false);
+
+          setQuery(e.target.value);
+
+        }}
+        placeholder="Search destination..."
+        autoComplete="off"
+        autoCorrect="off"
+        autoCapitalize="none"
+        spellCheck={false}
+        inputMode="search"
+        tabIndex={isOpen ? 0 : -1}
+        aria-hidden={!isOpen}
+        className={`
+          fixed
+          left-[-9999px]
+          top-0
+          h-1
+          w-1
+          opacity-0
+          pointer-events-none
+        `}
+      />
+
+
+      {/* ======================================================
+          NORMAL SEARCH BAR
+      ====================================================== */}
+
+      <button
+        type="button"
+        onClick={openSearch}
         className="
           flex
+          w-full
           items-center
           gap-3
           rounded-2xl
@@ -114,227 +339,506 @@ export default function PlaceAutocomplete({
           bg-zinc-950
           px-4
           py-3
+          text-left
+          transition
+          active:scale-[0.99]
         "
       >
-
-        {/* ====================================================
-            SEARCH ICON
-        ==================================================== */}
 
         <Search
           size={20}
           className="shrink-0 text-zinc-400"
         />
 
-
-        {/* ====================================================
-            TEXT INPUT
-
-            pr-8 gives the text enough room so it doesn't
-            overlap with the X button.
-        ==================================================== */}
-
-        <input
-          value={query}
-          onChange={(e) => {
-            setSelected(false);
-            setQuery(e.target.value);
-          }}
-          placeholder="Search destination..."
-          className="
-            min-w-0
-            flex-1
-            bg-transparent
-            text-white
-            outline-none
-            placeholder:text-zinc-500
-            pr-8
-          "
-        />
-
-
-        {/* ====================================================
-            CLEAR BUTTON
-
-            Only show the X when there is something to clear.
-
-            This keeps the search bar clean when empty.
-        ==================================================== */}
-
-        {query.length > 0 && (
-          <button
-            type="button"
-            onClick={handleClear}
-            aria-label="Clear destination search"
-            className="
-              flex
-              h-7
-              w-7
-              shrink-0
-              items-center
-              justify-center
-              rounded-full
-              text-zinc-500
-              transition
-              hover:bg-zinc-800
-              hover:text-white
-              active:scale-90
-            "
-          >
-            <X size={17} strokeWidth={2} />
-          </button>
-        )}
-
-      </div>
-
-
-      {/* ======================================================
-          LOADING STATE
-      ====================================================== */}
-
-      {loading && (
-        <div
-          className="
-            absolute
-            left-0
-            top-full
-            z-[999]
-            mt-2
-            w-full
-            rounded-2xl
-            border
-            border-zinc-800
-            bg-zinc-950
-            p-4
-            text-sm
-            text-zinc-400
-            shadow-xl
-          "
+        <span
+          className={
+            query
+              ? "min-w-0 flex-1 truncate text-white"
+              : "min-w-0 flex-1 truncate text-zinc-500"
+          }
         >
-          Searching...
-        </div>
-      )}
+          {query || "Search destination..."}
+        </span>
+
+      </button>
 
 
       {/* ======================================================
-          AUTOCOMPLETE RESULTS
+          FULL SCREEN SEARCH
       ====================================================== */}
 
-      {!selected && suggestions.length > 0 && (
+      {isOpen && (
+
         <div
           className="
-            absolute
-            left-0
-            top-full
-            z-[999]
-            mt-2
-            max-h-80
-            w-full
-            overflow-y-auto
-            rounded-2xl
-            border
-            border-zinc-800
-            bg-zinc-950
-            shadow-2xl
+            fixed
+            inset-0
+            z-[100]
+            flex
+            flex-col
+            bg-[#090A0F]
           "
         >
 
           {/* ==================================================
-              SUGGESTION LIST
+              TOP SEARCH BAR
           ================================================== */}
 
-          {suggestions.map((place) => (
+          <div
+            className="
+              shrink-0
+              px-4
+              pb-3
+              pt-[calc(env(safe-area-inset-top)+12px)]
+            "
+          >
 
-            <button
-              key={place.placeId}
-              type="button"
-              onClick={() => {
+            <div className="flex items-center gap-2">
 
-                /*
-                  Mark the destination as selected so
-                  autocomplete stops searching.
-                */
-
-                setSelected(true);
-
-
-                /*
-                  Display the selected destination without
-                  showing ", Trinidad and Tobago".
-                */
-
-                setQuery(
-                  place.fullText.replace(
-                    /, Trinidad and Tobago$/,
-                    ""
-                  )
-                );
-
-
-                /*
-                  Send the selected place back to the
-                  DestinationCard / parent component.
-                */
-
-                onSelect(place);
-              }}
-              className="
-                flex
-                w-full
-                items-start
-                gap-3
-                px-4
-                py-4
-                text-left
-                transition
-                hover:bg-zinc-900
-                active:bg-zinc-800
-              "
-            >
 
               {/* ==============================================
-                  LOCATION ICON
+                  BACK BUTTON
               ============================================== */}
 
-              <MapPin
-                size={18}
+              <button
+                type="button"
+                onClick={closeSearch}
+                aria-label="Close search"
                 className="
-                  mt-1
+                  flex
+                  h-11
+                  w-11
                   shrink-0
-                  text-blue-400
+                  items-center
+                  justify-center
+                  rounded-full
+                  text-zinc-300
+                  transition
+                  active:scale-90
                 "
-              />
+              >
+
+                <ArrowLeft size={22} />
+
+              </button>
 
 
               {/* ==============================================
-                  PLACE INFORMATION
+                  VISIBLE SEARCH FIELD
               ============================================== */}
 
-              <div className="min-w-0">
+              <div
+                className="
+                  flex
+                  min-w-0
+                  flex-1
+                  items-center
+                  gap-3
+                  rounded-2xl
+                  border
+                  border-zinc-800
+                  bg-zinc-950
+                  px-4
+                  py-3
+                "
+              >
 
-                {/* Main place name */}
+                <Search
+                  size={20}
+                  className="shrink-0 text-zinc-400"
+                />
 
-                <p className="font-medium text-white">
-                  {place.mainText}
+
+                {/*
+                  This visible input mirrors the actual search
+                  input.
+
+                  We use a second input here because the
+                  permanently mounted input must remain
+                  available for iOS keyboard activation.
+                */}
+
+                <input
+                  value={query}
+                  onChange={(e) => {
+
+                    setSelected(false);
+
+                    setQuery(e.target.value);
+
+                  }}
+                  onFocus={() => {
+
+                    /*
+                      Keep the permanently mounted input
+                      synchronized with the visible field.
+                    */
+
+                    searchInputRef.current?.focus();
+
+                  }}
+                  placeholder="Search destination..."
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  inputMode="search"
+                  className="
+                    min-w-0
+                    flex-1
+                    bg-transparent
+                    text-white
+                    outline-none
+                    placeholder:text-zinc-500
+                  "
+                />
+
+
+                {/* ==========================================
+                    CLEAR BUTTON
+                ========================================== */}
+
+                {query.length > 0 && (
+
+                  <button
+                    type="button"
+                    onClick={handleClear}
+                    aria-label="Clear search"
+                    className="
+                      flex
+                      h-7
+                      w-7
+                      shrink-0
+                      items-center
+                      justify-center
+                      rounded-full
+                      text-zinc-500
+                      transition
+                      active:scale-90
+                    "
+                  >
+
+                    <X size={17} />
+
+                  </button>
+
+                )}
+
+              </div>
+
+            </div>
+
+          </div>
+
+
+          {/* ==================================================
+              SEARCH CONTENT
+          ================================================== */}
+
+          <div
+            className="
+              min-h-0
+              flex-1
+              overflow-y-auto
+              overscroll-contain
+              px-4
+              pb-[calc(env(safe-area-inset-bottom)+24px)]
+            "
+          >
+
+            {/* ==================================================
+                RECENT DESTINATIONS
+            ================================================== */}
+
+            {query.length === 0 &&
+              recentDestinations.length > 0 && (
+
+              <div>
+
+                <div className="mb-3 flex items-center gap-2 px-1">
+
+                  <Clock3
+                    size={17}
+                    className="text-zinc-500"
+                  />
+
+                  <p className="text-sm font-medium text-zinc-400">
+                    Recent
+                  </p>
+
+                </div>
+
+
+                <div
+                  className="
+                    overflow-hidden
+                    rounded-2xl
+                    border
+                    border-zinc-800
+                    bg-zinc-950
+                  "
+                >
+
+                  {recentDestinations.map(
+                    (place, index) => (
+
+                    <button
+                      key={place.placeId}
+                      type="button"
+                      onClick={() =>
+                        handleSelect(place)
+                      }
+                      className={`
+                        flex
+                        w-full
+                        items-start
+                        gap-3
+                        px-4
+                        py-4
+                        text-left
+                        transition
+                        active:bg-zinc-800
+                        ${
+                          index !==
+                          recentDestinations.length - 1
+                            ? "border-b border-zinc-800"
+                            : ""
+                        }
+                      `}
+                    >
+
+                      <div
+                        className="
+                          mt-0.5
+                          flex
+                          h-9
+                          w-9
+                          shrink-0
+                          items-center
+                          justify-center
+                          rounded-full
+                          bg-zinc-900
+                        "
+                      >
+
+                        <Clock3
+                          size={17}
+                          className="text-zinc-500"
+                        />
+
+                      </div>
+
+
+                      <div className="min-w-0">
+
+                        <p className="truncate font-medium text-white">
+                          {place.mainText}
+                        </p>
+
+                        <p className="truncate text-sm text-zinc-500">
+                          {place.secondaryText.replace(
+                            /, Trinidad and Tobago$/,
+                            ""
+                          )}
+                        </p>
+
+                      </div>
+
+                    </button>
+
+                  ))}
+
+                </div>
+
+              </div>
+
+            )}
+
+
+            {/* ==================================================
+                NO RECENT DESTINATIONS
+            ================================================== */}
+
+            {query.length === 0 &&
+              recentDestinations.length === 0 && (
+
+              <div
+                className="
+                  flex
+                  flex-col
+                  items-center
+                  justify-center
+                  px-6
+                  pt-24
+                  text-center
+                "
+              >
+
+                <div
+                  className="
+                    mb-4
+                    flex
+                    h-14
+                    w-14
+                    items-center
+                    justify-center
+                    rounded-full
+                    bg-blue-500/10
+                  "
+                >
+
+                  <Search
+                    size={24}
+                    className="text-blue-300"
+                  />
+
+                </div>
+
+                <p className="font-medium text-zinc-300">
+                  Search for a destination
                 </p>
 
-
-                {/* Secondary location */}
-
-                <p className="text-sm text-zinc-500">
-                  {place.secondaryText.replace(
-                    /, Trinidad and Tobago$/,
-                    ""
-                  )}
+                <p className="mt-1 text-sm text-zinc-500">
+                  Find a place to calculate when you should leave.
                 </p>
 
               </div>
 
-            </button>
+            )}
 
-          ))}
+
+            {/* ==================================================
+                LOADING
+            ================================================== */}
+
+            {query.length > 0 &&
+              loading && (
+
+              <div className="px-1 py-6 text-sm text-zinc-500">
+                Searching...
+              </div>
+
+            )}
+
+
+            {/* ==================================================
+                GOOGLE AUTOCOMPLETE RESULTS
+            ================================================== */}
+
+            {query.length > 0 &&
+              !loading &&
+              suggestions.length > 0 && (
+
+              <div
+                className="
+                  overflow-hidden
+                  rounded-2xl
+                  border
+                  border-zinc-800
+                  bg-zinc-950
+                "
+              >
+
+                {suggestions.map(
+                  (place, index) => (
+
+                  <button
+                    key={place.placeId}
+                    type="button"
+                    onClick={() =>
+                      handleSelect(place)
+                    }
+                    className={`
+                      flex
+                      w-full
+                      items-start
+                      gap-3
+                      px-4
+                      py-4
+                      text-left
+                      transition
+                      active:bg-zinc-800
+                      ${
+                        index !==
+                        suggestions.length - 1
+                          ? "border-b border-zinc-800"
+                          : ""
+                      }
+                    `}
+                  >
+
+                    <div
+                      className="
+                        mt-0.5
+                        flex
+                        h-9
+                        w-9
+                        shrink-0
+                        items-center
+                        justify-center
+                        rounded-full
+                        bg-blue-500/10
+                      "
+                    >
+
+                      <MapPin
+                        size={18}
+                        className="text-blue-400"
+                      />
+
+                    </div>
+
+
+                    <div className="min-w-0">
+
+                      <p className="truncate font-medium text-white">
+                        {place.mainText}
+                      </p>
+
+                      <p className="truncate text-sm text-zinc-500">
+                        {place.secondaryText.replace(
+                          /, Trinidad and Tobago$/,
+                          ""
+                        )}
+                      </p>
+
+                    </div>
+
+                  </button>
+
+                ))}
+
+              </div>
+
+            )}
+
+
+            {/* ==================================================
+                NO RESULTS
+            ================================================== */}
+
+            {query.length > 0 &&
+              !loading &&
+              suggestions.length === 0 && (
+
+              <div
+                className="
+                  px-1
+                  py-10
+                  text-center
+                  text-sm
+                  text-zinc-500
+                "
+              >
+                No destinations found.
+              </div>
+
+            )}
+
+          </div>
 
         </div>
+
       )}
 
     </div>

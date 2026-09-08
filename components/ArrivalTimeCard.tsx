@@ -10,6 +10,13 @@ interface ArrivalTimeCardProps {
   mode: "arrive" | "leaveNow";
   onModeChange: (mode: "arrive" | "leaveNow") => void;
   onDateChange?: (date: string) => void;
+  onCalculate: (
+    mode: "arrive" | "leaveNow",
+    values?: {
+      arrivalDate?: string;
+      arrivalTime?: string;
+    }
+  ) => void;
 }
 
 /* ============================================================
@@ -106,6 +113,7 @@ export default function ArrivalTimeCard({
   mode,
   onModeChange,
   onDateChange,
+  onCalculate,
 }: ArrivalTimeCardProps) {
   /* ==========================================================
      STATE
@@ -146,7 +154,8 @@ export default function ArrivalTimeCard({
 
   const lastMinuteRef = useRef<number | null>(null);
 
-  const lastPeriodRef = useRef<"AM" | "PM" | null>(null);
+  const lastPeriodRef =
+    useRef<"AM" | "PM" | null>(null);
 
   const lastDateIndexRef = useRef<number | null>(null);
 
@@ -1077,6 +1086,11 @@ export default function ArrivalTimeCard({
     }
 
     setIsOpen(false);
+
+    onCalculate("arrive", {
+      arrivalDate: selectedDate,
+      arrivalTime: newTime,
+    });
   }
 
   /* ==========================================================
@@ -1190,7 +1204,7 @@ export default function ArrivalTimeCard({
                 transition
                 ${
                   mode === "arrive"
-                    ? "bg-amber-500 text-black"
+                    ? "bg-blue-600 text-black"
                     : "bg-zinc-800 text-white hover:bg-zinc-700"
                 }
               `}
@@ -1200,9 +1214,10 @@ export default function ArrivalTimeCard({
 
             <button
               type="button"
-              onClick={() =>
-                onModeChange("leaveNow")
-              }
+              onClick={() => {
+                onModeChange("leaveNow");
+                onCalculate("leaveNow");
+              }}
               className={`
                 rounded-xl
                 px-4
@@ -1212,7 +1227,7 @@ export default function ArrivalTimeCard({
                 transition
                 ${
                   mode === "leaveNow"
-                    ? "bg-amber-500 text-black"
+                    ? "bg-blue-600 text-black"
                     : "bg-zinc-800 text-white hover:bg-zinc-700"
                 }
               `}
@@ -1224,9 +1239,9 @@ export default function ArrivalTimeCard({
           {/* HEADER */}
 
           <div className="flex items-center gap-3">
-            <div className="rounded-2xl bg-amber-500/20 p-3">
+            <div className="rounded-2xl bg-blue-500/20 p-2">
               <Clock3
-                className="text-amber-400"
+                className="text-blue-200/50"
                 size={22}
               />
             </div>
@@ -1272,7 +1287,7 @@ export default function ArrivalTimeCard({
               <div className="flex items-center gap-3">
                 <Clock3
                   size={20}
-                  className="text-amber-400"
+                  className="text-blue-200/50"
                 />
 
                 <div>
@@ -1391,9 +1406,9 @@ export default function ArrivalTimeCard({
                   py-2
                   text-sm
                   font-semibold
-                  text-amber-400
+                  bg-blue-600
                   transition
-                  hover:bg-amber-500/10
+                  hover:bg-blue-500
                 "
               >
                 Done
@@ -1438,8 +1453,8 @@ export default function ArrivalTimeCard({
                     -translate-y-1/2
                     rounded-xl
                     border
-                    border-amber-500/30
-                    bg-amber-500/5
+                    border-blue-500/30
+                    bg-blue-500/5
                   "
                 />
 
@@ -1487,15 +1502,6 @@ export default function ArrivalTimeCard({
                               "long",
                           }
                         );
-
-                      /*
-                        CHANGED:
-                        Month is now abbreviated.
-
-                        January -> Jan
-                        February -> Feb
-                        August -> Aug
-                      */
 
                       const month =
                         option.date.toLocaleDateString(
@@ -1555,7 +1561,7 @@ export default function ArrivalTimeCard({
                             transition
                             ${
                               isSelected
-                                ? "font-semibold text-amber-400"
+                                ? "font-semibold text-blue-600"
                                 : "text-zinc-500"
                             }
                           `}
@@ -1620,8 +1626,8 @@ export default function ArrivalTimeCard({
                     -translate-y-1/2
                     rounded-xl
                     border
-                    border-amber-500/30
-                    bg-amber-500/5
+                    border-blue-500/30
+                    bg-blue-500/5
                   "
                 />
 
@@ -1695,7 +1701,7 @@ export default function ArrivalTimeCard({
                           ${
                             selectedHour ===
                             hour
-                              ? "font-bold text-amber-400"
+                              ? "font-bold text-blue-600"
                               : "text-zinc-500"
                           }
                         `}
@@ -1796,7 +1802,7 @@ export default function ArrivalTimeCard({
                           ${
                             selectedMinute ===
                             minute
-                              ? "font-bold text-amber-400"
+                              ? "font-bold text-blue-600"
                               : "text-zinc-500"
                           }
                         `}
@@ -1882,7 +1888,7 @@ export default function ArrivalTimeCard({
                           ${
                             selectedPeriod ===
                             period
-                              ? "font-bold text-amber-400"
+                              ? "font-bold text-blue-600"
                               : "text-zinc-500"
                           }
                         `}
@@ -1921,14 +1927,14 @@ export default function ArrivalTimeCard({
                   justify-center
                   gap-2
                   rounded-2xl
-                  bg-amber-500
+                  bg-blue-600
                   px-4
                   py-3
                   text-sm
                   font-bold
-                  text-black
+                  text-white
                   transition
-                  hover:bg-amber-400
+                  hover:bg-blue-500
                   active:scale-[0.98]
                 "
               >

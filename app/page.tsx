@@ -1,208 +1,135 @@
 "use client";
 
-import {
-  useEffect,
-  useRef,
-  useState,
-} from "react";
-
-// --------------------------------------------------
-// COMPONENTS
-// --------------------------------------------------
+import { useEffect, useRef, useState } from "react";
 
 import Header from "@/components/Header";
 import CurrentLocationCard from "@/components/CurrentLocationCard";
 import DestinationCard from "@/components/DestinationCard";
 import ArrivalTimeCard from "@/components/ArrivalTimeCard";
-import CalculateButton from "@/components/CalculateButton";
 import ResultCard from "@/components/ResultCard";
 import Toast from "@/components/ui/toast";
-
-// --------------------------------------------------
-// TYPES & HOOKS
-// --------------------------------------------------
 
 import type { PlaceSuggestion } from "@/types/places";
 import { useLocation } from "@/lib/useLocation";
 
-// --------------------------------------------------
-// PAGE
-// --------------------------------------------------
-
 export default function Home() {
-  // ==================================================
-  // APP STATE
-  // ==================================================
+  // --------------------------------------------------
+  // STATE
+  // --------------------------------------------------
 
-  const [calculationError, setCalculationError] =
-    useState<string | null>(null);
-
-  const [hasCalculated, setHasCalculated] =
-    useState(false);
+  const [calculationError, setCalculationError] = useState<string | null>(null);
+  const [hasCalculated, setHasCalculated] = useState(false);
 
   const [destination, setDestination] =
     useState<PlaceSuggestion | null>(null);
 
-  const [arrivalTime, setArrivalTime] =
-    useState("");
+  const [arrivalTime, setArrivalTime] = useState("");
+  const [arrivalDate, setArrivalDate] = useState("");
+  const [leaveTime, setLeaveTime] = useState("");
+  const [estimatedArrivalTime, setEstimatedArrivalTime] = useState("");
 
-  const [arrivalDate, setArrivalDate] =
-    useState("");
+  const [mode, setMode] = useState<"arrive" | "leaveNow">("arrive");
 
-  const [leaveTime, setLeaveTime] =
-    useState("");
-
-  const [estimatedArrivalTime, setEstimatedArrivalTime] =
-    useState("");
-
-  const [mode, setMode] =
-    useState<"arrive" | "leaveNow">("arrive");
+  const [lastArriveBy, setLastArriveBy] = useState<{
+    arrivalDate: string;
+    arrivalTime: string;
+    leaveTime: string;
+    routeInfo: {
+      travelMinutes: number;
+      distanceKm: number;
+      trafficDelay: number;
+      description: string;
+    };
+  } | null>(null);
 
   const [routeInfo, setRouteInfo] = useState({
     travelMinutes: 0,
     distanceKm: 0,
     trafficDelay: 0,
+    description: "",
   });
 
-  const resultRef =
-    useRef<HTMLDivElement | null>(null);
+  const resultRef = useRef<HTMLDivElement | null>(null);
+  const hasCalculatedRef = useRef(false);
 
-  const hasCalculatedRef =
-    useRef(false);
-
-  // ==================================================
+  // --------------------------------------------------
   // CURRENT LOCATION
-  // ==================================================
+  // --------------------------------------------------
 
-  const {
-    location,
-    loading,
-    error,
-  } = useLocation();
+  const { location, loading, error } = useLocation();
 
-  // ==================================================
+  // --------------------------------------------------
   // CALCULATE ROUTE
-  // ==================================================
+  // --------------------------------------------------
 
-  async function calculateLeaveTime() {
-    // ==================================================
-    // BASIC VALIDATION
-    // ==================================================
-
+  async function calculateLeaveTime(
+    calculationMode: "arrive" | "leaveNow" = mode,
+    values?: {
+      arrivalDate?: string;
+      arrivalTime?: string;
+    }
+  ) {
     if (!location) {
       setCalculationError(
         "We can't calculate your route because your current location is unavailable."
       );
-
       return;
     }
 
     if (!destination) {
-      setCalculationError(
-        "Please select a destination."
-      );
-
+      setCalculationError("Please select a destination.");
       return;
     }
 
-    // ==================================================
-    // CREATE GOOGLE TIMESTAMP
-    // ==================================================
+    // --------------------------------------------------
+    // USE FRESH VALUES FROM ARRIVAL TIME CARD
+    // --------------------------------------------------
+
+    const selectedArrivalDate =
+      values?.arrivalDate ?? arrivalDate;
+
+    const selectedArrivalTime =
+      values?.arrivalTime ?? arrivalTime;
+
+    // --------------------------------------------------
+    // CREATE DEPARTURE TIMESTAMP
+    // --------------------------------------------------
 
     let departureTime: string;
 
-    if (mode === "leaveNow") {
-      /*
-        LEAVE NOW
-
-        Always create a completely fresh timestamp.
-
-        Example:
-
-        2026-08-30T21:35:42.123Z
-
-        This contains:
-
-        Year
-        Month
-        Day
-        Hour
-        Minute
-        Second
-        Milliseconds
-        Timezone
-      */
-
-      const now = new Date();
-
-      departureTime =
-        now.toISOString();
-
-      console.log(
-        "LEAVE NOW timestamp:",
-        departureTime
-      );
+    if (calculationMode === "leaveNow") {
+      departureTime = new Date().toISOString();
     } else {
-      // ==================================================
-      // ARRIVE BY VALIDATION
-      // ==================================================
-
-      if (!arrivalDate || !arrivalTime) {
+      if (!selectedArrivalDate || !selectedArrivalTime) {
         setCalculationError(
           "Please select an arrival date and time."
         );
-
         return;
       }
 
-      // --------------------------------------------------
-      // PARSE DATE
-      // --------------------------------------------------
-
-      const dateParts =
-        arrivalDate.split("-");
+      const dateParts = selectedArrivalDate.split("-");
+      const timeParts = selectedArrivalTime.split(":");
 
       if (dateParts.length !== 3) {
         setCalculationError(
           "The selected arrival date is invalid."
         );
-
         return;
       }
-
-      const year =
-        Number(dateParts[0]);
-
-      const month =
-        Number(dateParts[1]);
-
-      const day =
-        Number(dateParts[2]);
-
-      // --------------------------------------------------
-      // PARSE TIME
-      // --------------------------------------------------
-
-      const timeParts =
-        arrivalTime.split(":");
 
       if (timeParts.length !== 2) {
         setCalculationError(
           "The selected arrival time is invalid."
         );
-
         return;
       }
 
-      const hours =
-        Number(timeParts[0]);
+      const year = Number(dateParts[0]);
+      const month = Number(dateParts[1]);
+      const day = Number(dateParts[2]);
 
-      const minutes =
-        Number(timeParts[1]);
-
-      // --------------------------------------------------
-      // VALIDATE NUMBERS
-      // --------------------------------------------------
+      const hours = Number(timeParts[0]);
+      const minutes = Number(timeParts[1]);
 
       if (
         !Number.isFinite(year) ||
@@ -214,134 +141,68 @@ export default function Home() {
         setCalculationError(
           "The selected arrival date or time is invalid."
         );
-
         return;
       }
 
-      // --------------------------------------------------
-      // CREATE DATE
-      // --------------------------------------------------
+      const requestedArrival = new Date(
+        year,
+        month - 1,
+        day,
+        hours,
+        minutes,
+        0,
+        0
+      );
 
-      const requestedArrival =
-        new Date(
-          year,
-          month - 1,
-          day,
-          hours,
-          minutes,
-          0,
-          0
-        );
-
-      // --------------------------------------------------
-      // MAKE SURE JAVASCRIPT ACCEPTED THE DATE
-      // --------------------------------------------------
-
-      if (
-        Number.isNaN(
-          requestedArrival.getTime()
-        )
-      ) {
+      if (Number.isNaN(requestedArrival.getTime())) {
         setCalculationError(
           "The selected arrival date or time is invalid."
         );
-
         return;
       }
 
-      // --------------------------------------------------
-      // CHECK PAST TIME
-      // --------------------------------------------------
-
-      const now =
-        new Date();
-
-      if (
-        requestedArrival <= now
-      ) {
+      if (requestedArrival <= new Date()) {
         setCalculationError(
           "That arrival time has already passed. Please choose a future date and time."
         );
-
         return;
       }
 
-      // --------------------------------------------------
-      // CONVERT TO GOOGLE TIMESTAMP
-      // --------------------------------------------------
-
-      departureTime =
-        requestedArrival.toISOString();
-
-      console.log(
-        "ARRIVE BY timestamp:",
-        departureTime
-      );
+      departureTime = requestedArrival.toISOString();
     }
 
-    // ==================================================
-    // CLEAR PREVIOUS STATE
-    // ==================================================
+    // --------------------------------------------------
+    // RESET PREVIOUS RESULT
+    // --------------------------------------------------
 
     setCalculationError(null);
-
     setLeaveTime("");
-
     setEstimatedArrivalTime("");
 
-    // ==================================================
-    // SEND ROUTE REQUEST
-    // ==================================================
+    // --------------------------------------------------
+    // CALL ROUTE API
+    // --------------------------------------------------
 
     try {
-      console.log(
-        "Sending departureTime to API:",
-        departureTime
-      );
-
-      const response =
-        await fetch(
-          "/api/routes",
-          {
-            method: "POST",
-
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-
-            body: JSON.stringify({
-              origin: {
-                latitude:
-                  location.latitude,
-
-                longitude:
-                  location.longitude,
-              },
-
-              destinationPlaceId:
-                destination.placeId,
-
-              departureTime:
-                departureTime,
-            }),
-          }
-        );
-
-      // ==================================================
-      // HTTP ERROR
-      // ==================================================
+      const response = await fetch("/api/routes", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          origin: {
+            latitude: location.latitude,
+            longitude: location.longitude,
+          },
+          destinationPlaceId: destination.placeId,
+          departureTime,
+        }),
+      });
 
       if (!response.ok) {
-        const errorData =
-          await response
-            .json()
-            .catch(() => null);
+        const errorData = await response.json().catch(() => null);
 
-        console.error(
-          "Route API error:",
-          errorData
-        );
+        console.error("Route API error:", errorData);
 
         setCalculationError(
           "We couldn't calculate your route right now. Please try again."
@@ -350,30 +211,14 @@ export default function Home() {
         return;
       }
 
-      // ==================================================
-      // READ RESPONSE
-      // ==================================================
+      const data = await response.json();
 
-      const data =
-        await response.json();
+      // --------------------------------------------------
+      // VALIDATE GOOGLE RESPONSE
+      // --------------------------------------------------
 
-      console.log(
-        "Route API response:",
-        data
-      );
-
-      // ==================================================
-      // VALIDATE RESPONSE
-      // ==================================================
-
-      if (
-        !data.duration ||
-        !data.staticDuration
-      ) {
-        console.error(
-          "Invalid route response:",
-          data
-        );
+      if (!data.duration || !data.staticDuration) {
+        console.error("Invalid route response:", data);
 
         setCalculationError(
           "Google couldn't calculate a route for this request."
@@ -382,179 +227,117 @@ export default function Home() {
         return;
       }
 
-      // ==================================================
-      // SUCCESS
-      // ==================================================
+      // --------------------------------------------------
+      // CALCULATE TRAVEL TIME
+      // --------------------------------------------------
 
-      setHasCalculated(true);
+      const trafficSeconds = Number(
+        String(data.duration).replace("s", "")
+      );
 
-      hasCalculatedRef.current =
-        true;
+      const normalSeconds = Number(
+        String(data.staticDuration).replace("s", "")
+      );
 
-      // ==================================================
-      // TRAVEL TIME
-      // ==================================================
+      const trafficMinutes = Math.ceil(
+        trafficSeconds / 60
+      );
 
-      const trafficSeconds =
-        Number(
-          String(
-            data.duration
-          ).replace("s", "")
+      const normalMinutes = Math.ceil(
+        normalSeconds / 60
+      );
+
+      const trafficDelay = Math.max(
+        0,
+        trafficMinutes - normalMinutes
+      );
+
+      // --------------------------------------------------
+      // CALCULATE RESULT
+      // --------------------------------------------------
+
+      if (calculationMode === "arrive") {
+        const arrival = new Date(
+          `${selectedArrivalDate}T${selectedArrivalTime}:00`
         );
 
-      const normalSeconds =
-        Number(
-          String(
-            data.staticDuration
-          ).replace("s", "")
-        );
-
-      const trafficMinutes =
-        Math.ceil(
-          trafficSeconds / 60
-        );
-
-      const normalMinutes =
-        Math.ceil(
-          normalSeconds / 60
-        );
-
-      // ==================================================
-      // TRAFFIC DELAY
-      // ==================================================
-
-      const trafficDelay =
-        trafficMinutes -
-        normalMinutes;
-
-      // ==================================================
-      // TOTAL TRAVEL TIME
-      // ==================================================
-
-      const totalMinutes =
-        trafficMinutes;
-
-      // ==================================================
-      // RESULT
-      // ==================================================
-
-      if (mode === "arrive") {
-        // ------------------------------------------------
-        // ARRIVE BY
-        // ------------------------------------------------
-
-        const arrival =
-          new Date(
-            `${arrivalDate}T${arrivalTime}:00`
-          );
-
-        if (
-          Number.isNaN(
-            arrival.getTime()
-          )
-        ) {
+        if (Number.isNaN(arrival.getTime())) {
           setCalculationError(
             "The selected arrival date or time is invalid."
           );
-
           return;
         }
 
-        const leave =
-          new Date(
-            arrival.getTime() -
-              totalMinutes * 60000
-          );
-
-        const formattedLeave =
-          leave.toLocaleTimeString(
-            [],
-            {
-              hour: "numeric",
-              minute: "2-digit",
-            }
-          );
-
-        setLeaveTime(
-          formattedLeave
+        const leave = new Date(
+          arrival.getTime() -
+            trafficMinutes * 60000
         );
+
+        const calculatedLeaveTime =
+          leave.toLocaleTimeString([], {
+            hour: "numeric",
+            minute: "2-digit",
+          });
+
+        setLeaveTime(calculatedLeaveTime);
+
+        setLastArriveBy({
+          arrivalDate: selectedArrivalDate,
+          arrivalTime: selectedArrivalTime,
+          leaveTime: calculatedLeaveTime,
+          routeInfo: {
+            travelMinutes: trafficMinutes,
+            distanceKm: Number(
+              (data.distanceMeters / 1000).toFixed(1)
+            ),
+            trafficDelay,
+            description: data.description ?? "",
+          },
+        });
       } else {
-        // ------------------------------------------------
-        // LEAVE NOW
-        // ------------------------------------------------
+        const now = new Date(departureTime);
 
-        /*
-          Use the SAME timestamp that was
-          sent to Google.
-
-          This prevents the result from being
-          calculated using a different second.
-        */
-
-        const now =
-          new Date(
-            departureTime
-          );
-
-        if (
-          Number.isNaN(
-            now.getTime()
-          )
-        ) {
+        if (Number.isNaN(now.getTime())) {
           setCalculationError(
             "The current time could not be determined."
           );
-
           return;
         }
 
-        const estimatedArrival =
-          new Date(
-            now.getTime() +
-              totalMinutes * 60000
-          );
-
-        const formattedArrival =
-          estimatedArrival.toLocaleTimeString(
-            [],
-            {
-              hour: "numeric",
-              minute: "2-digit",
-            }
-          );
+        const estimatedArrival = new Date(
+          now.getTime() +
+            trafficMinutes * 60000
+        );
 
         setEstimatedArrivalTime(
-          formattedArrival
+          estimatedArrival.toLocaleTimeString([], {
+            hour: "numeric",
+            minute: "2-digit",
+          })
         );
 
-        setLeaveTime(
-          "Now"
-        );
+        setLeaveTime("Now");
       }
 
-      // ==================================================
+      // --------------------------------------------------
       // SAVE ROUTE INFORMATION
-      // ==================================================
+      // --------------------------------------------------
 
       setRouteInfo({
-        travelMinutes:
-          trafficMinutes,
-
-        distanceKm:
-          Number(
-            (
-              data.distanceMeters /
-              1000
-            ).toFixed(1)
-          ),
-
-        trafficDelay:
-          trafficDelay,
+        travelMinutes: trafficMinutes,
+        distanceKm: Number(
+          (data.distanceMeters / 1000).toFixed(1)
+        ),
+        trafficDelay,
+        description: data.description ?? "",
       });
 
-      // ==================================================
+      setHasCalculated(true);
+      hasCalculatedRef.current = true;
+
+      // --------------------------------------------------
       // SCROLL TO RESULT
-      // ==================================================
+      // --------------------------------------------------
 
       setTimeout(() => {
         resultRef.current?.scrollIntoView({
@@ -574,35 +357,34 @@ export default function Home() {
     }
   }
 
-  // ==================================================
-  // LIVE LOCATION UPDATE
-  // ==================================================
+  // --------------------------------------------------
+  // UPDATE ROUTE WHEN LOCATION CHANGES
+  // --------------------------------------------------
 
   useEffect(() => {
-    if (!hasCalculatedRef.current) {
-      return;
-    }
-
-    if (!location) {
+    if (!hasCalculatedRef.current || !location) {
       return;
     }
 
     calculateLeaveTime();
   }, [location]);
 
-  // ==================================================
-  // PAGE UI
-  // ==================================================
+  // --------------------------------------------------
+  // UI
+  // --------------------------------------------------
 
   return (
     <main>
-      <div className="mx-auto max-w-xl space-y-4 p-6">
-
-        {/* HEADER */}
-
+      <div
+        className="mx-auto max-w-xl space-y-4 px-6 pb-6"
+        style={{
+          paddingTop:
+            "calc(env(safe-area-inset-top) + 1.5rem)",
+          paddingBottom:
+            "calc(env(safe-area-inset-bottom) + 1.5rem)",
+        }}
+      >
         <Header />
-
-        {/* CURRENT LOCATION */}
 
         <CurrentLocationCard
           location={location}
@@ -610,50 +392,42 @@ export default function Home() {
           error={error}
         />
 
-        {/* DESTINATION */}
-
-        <DestinationCard
-          onSelect={(place) => {
-            setDestination(place);
-          }}
-        />
-
-        {/* ARRIVAL / LEAVE NOW */}
-
-        <ArrivalTimeCard
-          value={arrivalTime}
-          onChange={setArrivalTime}
-          mode={mode}
-          onModeChange={setMode}
-          onDateChange={setArrivalDate}
-        />
-
-        {/* CALCULATE */}
-
-        <CalculateButton
-          onClick={
-            calculateLeaveTime
-          }
-        />
-
-        {/* ERROR */}
-
         {calculationError && (
           <Toast
-            message={
-              calculationError
-            }
+            message={calculationError}
             onClose={() =>
-              setCalculationError(
-                null
-              )
+              setCalculationError(null)
             }
           />
         )}
 
-        {/* RESULT */}
+        <DestinationCard
+          onSelect={(place) =>
+            setDestination(place)
+          }
+        />
 
-        {leaveTime && (
+        <ArrivalTimeCard
+            value={arrivalTime}
+            onChange={setArrivalTime}
+            mode={mode}
+            onModeChange={(newMode) => {
+              setMode(newMode);
+
+              if (newMode === "arrive" && lastArriveBy) {
+                setArrivalDate(lastArriveBy.arrivalDate);
+                setArrivalTime(lastArriveBy.arrivalTime);
+                setLeaveTime(lastArriveBy.leaveTime);
+                setRouteInfo(lastArriveBy.routeInfo);
+                setEstimatedArrivalTime("");
+                setHasCalculated(true);
+              }
+            }}
+            onDateChange={setArrivalDate}
+            onCalculate={calculateLeaveTime}
+        />
+
+        {hasCalculated && leaveTime && (
           <div ref={resultRef}>
             <ResultCard
               mode={mode}
@@ -673,3 +447,4 @@ export default function Home() {
     </main>
   );
 }
+

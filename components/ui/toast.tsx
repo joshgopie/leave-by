@@ -1,5 +1,7 @@
 "use client";
 
+import { AlertCircle } from "lucide-react";
+
 interface ToastProps {
   message: string;
   onClose: () => void;
@@ -11,35 +13,72 @@ export default function Toast({
 }: ToastProps) {
   return (
     <div
-    className="
+      className="
         fixed
-        bottom-6
-        left-1/2
-        -translate-x-1/2
+        inset-0
         z-[9999]
-        w-[calc(100%-2rem)]
-        max-w-md
-        rounded-2xl
-        border
-        border-red-500/30
-        bg-zinc-950
-        px-5
-        py-4
-        text-red-400
-        shadow-2xl
-        shadow-red-950/30
-    "
+        flex
+        items-center
+        justify-center
+        pointer-events-none
+      "
+      role="alert"
     >
-      <div className="flex items-center justify-between gap-4">
-        <p>{message}</p>
+      <div
+        className="
+          pointer-events-auto
+          w-[calc(100%-1.5rem)]
+          max-w-lg
+          rounded-3xl
+          border
+          border-zinc-800
+          bg-zinc-950/95
+          px-5
+          py-5
+          text-white
+          shadow-2xl
+          backdrop-blur-xl
+        "
+      >
+        <div className="flex items-center gap-4">
 
-        <button
-          onClick={onClose}
-          className="text-zinc-400 hover:text-white"
-          aria-label="Close notification"
-        >
-          ×
-        </button>
+          {/* ICON */}
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-600/15">
+            <AlertCircle
+              size={22}
+              className="text-red-400"
+            />
+          </div>
+
+          {/* MESSAGE */}
+          <p className="min-w-0 flex-1 text-sm font-medium leading-relaxed text-zinc-100">
+            {message}
+          </p>
+
+          {/* OK BUTTON */}
+          <button
+            type="button"
+            onClick={onClose}
+            className="
+              shrink-0
+              rounded-xl
+              bg-blue-600
+              px-4
+              py-2.5
+              text-sm
+              font-semibold
+              text-white
+              shadow-lg
+              shadow-blue-950/30
+              transition
+              active:scale-95
+              hover:bg-blue-500
+            "
+          >
+            OK
+          </button>
+
+        </div>
       </div>
     </div>
   );

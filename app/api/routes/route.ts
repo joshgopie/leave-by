@@ -1,17 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
-
   try {
-
-    const body = await request.json();
-
-    const {
-      origin,
-      destinationPlaceId,
-      departureTime,
-    } = body;
-
+    const { origin, destinationPlaceId, departureTime } =
+      await request.json();
 
     if (!origin || !destinationPlaceId) {
       return NextResponse.json(
@@ -20,25 +12,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-
     const response = await fetch(
       "https://routes.googleapis.com/directions/v2:computeRoutes",
       {
         method: "POST",
-
         headers: {
           "Content-Type": "application/json",
-
-          "X-Goog-Api-Key":
-            process.env.GOOGLE_MAPS_API_KEY!,
-
+          "X-Goog-Api-Key": process.env.GOOGLE_MAPS_API_KEY!,
           "X-Goog-FieldMask":
-            "routes.duration,routes.staticDuration,routes.distanceMeters",
+            "routes.duration,routes.staticDuration,routes.distanceMeters,routes.description",
         },
-
-
         body: JSON.stringify({
-
           origin: {
             location: {
               latLng: {
@@ -47,99 +31,48 @@ export async function POST(request: NextRequest) {
               },
             },
           },
-
-
           destination: {
             placeId: destinationPlaceId,
           },
-
-
           travelMode: "DRIVE",
-
-
-          routingPreference:
-            "TRAFFIC_AWARE",
-
-          departureTime: 
-            departureTime,
-
+          routingPreference: "TRAFFIC_AWARE",
+          departureTime,
         }),
       }
     );
 
-
     const data = await response.json();
 
-
     if (!response.ok) {
-
-      console.error(
-        "Google Routes Error:",
-        data
-      );
-
+      console.error("Google Routes Error:", data);
 
       return NextResponse.json(
-        {
-          error: "Google Routes failed",
-          details: data,
-        },
-        {
-          status: 500,
-        }
+        { error: "Google Routes failed", details: data },
+        { status: 500 }
       );
-
     }
-
 
     const route = data.routes?.[0];
 
-
     if (!route) {
-
       return NextResponse.json(
-        {
-          error: "No route found",
-        },
-        {
-          status: 404,
-        }
+        { error: "No route found" },
+        { status: 404 }
       );
-
     }
 
-
     return NextResponse.json({
-
-      duration:
-      route.duration,
-
-    staticDuration:
-      route.staticDuration,
-
-  distanceMeters:
-    route.distanceMeters,
-
+      duration: route.duration,
+      staticDuration: route.staticDuration,
+      distanceMeters: route.distanceMeters,
+      description: route.description,
     });
-
-
   } catch (error) {
-
-    console.error(
-      "Route API Error:",
-      error
-    );
-
+    console.error("Route API Error:", error);
 
     return NextResponse.json(
-      {
-        error: "Route calculation failed",
-      },
-      {
-        status: 500,
-      }
+      { error: "Route calculation failed" },
+      { status: 500 }
     );
-
   }
-
 }
