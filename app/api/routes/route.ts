@@ -5,6 +5,11 @@ export async function POST(request: NextRequest) {
     const { origin, destinationPlaceId, departureTime } =
       await request.json();
 
+
+    const safeDepartureTime = new Date(
+      Date.now() + 5_000
+    ).toISOString();
+
     if (!origin || !destinationPlaceId) {
       return NextResponse.json(
         { error: "Missing route information" },
@@ -36,7 +41,7 @@ export async function POST(request: NextRequest) {
           },
           travelMode: "DRIVE",
           routingPreference: "TRAFFIC_AWARE",
-          departureTime,
+          departureTime:safeDepartureTime,
         }),
       }
     );

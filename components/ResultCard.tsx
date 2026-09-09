@@ -61,6 +61,21 @@ export default function ResultCard({
     window.location.href = wazeUrl;
   };
 
+  function formatTime(time: string): string {
+  if (!time) return "";
+
+  const [hours, minutes] = time.split(":").map(Number);
+
+  const date = new Date();
+  date.setHours(hours, minutes, 0, 0);
+
+  return date.toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
   return (
     <div className="space-y-5 rounded-3xl border border-zinc-800 bg-zinc-950 p-5 shadow-xl">
 
@@ -78,20 +93,27 @@ export default function ResultCard({
 
         {mode === "arrive" && (
           <p className="text-sm text-zinc-400">
-            Arrive by {arrivalTime}
+            Arrive by {formatTime(arrivalTime)}
           </p>
         )}
       </div>
 
       {/* ROUTE */}
-      <div className="space-y-4 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
+      <div className="space-y-4 rounded-2xl border border-zinc-800 bg-[#12141C] p-4">
 
         {/* FROM */}
         <div className="flex items-start gap-3">
-          <MapPin
-            size={18}
-            className="mt-1 shrink-0 text-blue-200/50"
-          />
+
+          <div className="flex items-center gap-3">
+            <div className="rounded-2xl bg-blue-500/20 p-2">
+              <MapPin
+                size={18}
+                className="shrink-0 text-blue-200/50"
+              />
+            </div>
+          </div>
+
+          
 
           <div className="min-w-0">
             <p className="text-xs text-zinc-500">
@@ -106,10 +128,17 @@ export default function ResultCard({
 
         {/* VIA */}
         <div className="flex items-start gap-3">
-          <Car
-            size={18}
-            className="mt-1 shrink-0 text-blue-200/50"
-          />
+          
+          <div className="flex items-center gap-3">
+            <div className="rounded-2xl bg-blue-500/20 p-2">
+              <Car
+                size={18}
+                className="shrink-0 text-blue-200/50"
+              />
+            </div>
+          </div>
+
+          
 
           <div className="min-w-0">
             <p className="text-xs text-zinc-500">
@@ -124,10 +153,15 @@ export default function ResultCard({
 
         {/* TO */}
         <div className="flex items-start gap-3">
-          <MapPin
-            size={18}
-            className="mt-1 shrink-0 text-blue-200/50"
-          />
+          <div className="flex items-center gap-3">
+            <div className="rounded-2xl bg-blue-500/20 p-2">
+              <MapPin
+                size={18}
+                className="shrink-0 text-blue-200/50"
+              />
+            </div>
+          </div>
+          
 
           <div className="min-w-0">
             <p className="text-xs text-zinc-500">
@@ -149,11 +183,19 @@ export default function ResultCard({
       <div className="grid grid-cols-2 gap-3">
 
         {/* TRAVEL TIME */}
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
-          <Clock
-            size={18}
-            className="mb-2 text-blue-200/50"
-          />
+        <div className="rounded-2xl border border-zinc-800 bg-[#12141C] p-4">
+          
+          <div className="flex items-center gap-3">
+            <div className="rounded-2xl bg-blue-500/20 p-2">
+              <Clock
+                size={18}
+                className="text-blue-200/50"
+              />
+            </div>
+          </div>
+          
+          
+          
 
           <p className="text-xs text-zinc-500">
             Travel time
@@ -165,11 +207,18 @@ export default function ResultCard({
         </div>
 
         {/* DISTANCE */}
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
-          <Navigation
-            size={18}
-            className="mb-2 text-blue-200/50"
-          />
+        <div className="rounded-2xl border border-zinc-800 bg-[#12141C] p-4">
+          
+          <div className="flex items-center gap-3">
+            <div className="rounded-2xl bg-blue-500/20 p-2">
+              <Navigation
+              size={18}
+              className="text-blue-200/50"
+              />
+            </div>
+          </div>
+          
+          
 
           <p className="text-xs text-zinc-500">
             Distance
@@ -183,7 +232,7 @@ export default function ResultCard({
       </div>
 
       {/* TRAFFIC */}
-      <div className="flex items-center gap-3 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
+      <div className="flex items-center gap-3 rounded-2xl border border-zinc-800 bg-[#12141C] p-4">
 
         <AlertTriangle
           size={18}

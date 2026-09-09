@@ -1216,7 +1216,6 @@ export default function ArrivalTimeCard({
               type="button"
               onClick={() => {
                 onModeChange("leaveNow");
-                onCalculate("leaveNow");
               }}
               className={`
                 rounded-xl
