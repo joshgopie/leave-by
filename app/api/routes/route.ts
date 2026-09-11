@@ -2,13 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
   try {
-    const { origin, destinationPlaceId, departureTime } =
+    const { origin, destinationPlaceId, departureTime, mode } =
       await request.json();
 
 
-    const safeDepartureTime = new Date(
-      Date.now() + 5_000
-    ).toISOString();
+   const safeDepartureTime =
+    mode === "leaveNow"
+    ? new Date(Date.now() + 5_000).toISOString()
+    : departureTime;
 
     if (!origin || !destinationPlaceId) {
       return NextResponse.json(
@@ -41,7 +42,7 @@ export async function POST(request: NextRequest) {
           },
           travelMode: "DRIVE",
           routingPreference: "TRAFFIC_AWARE",
-          departureTime:safeDepartureTime,
+          departureTime: safeDepartureTime,
         }),
       }
     );

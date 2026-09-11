@@ -6,6 +6,7 @@ import {
   Navigation,
   Car,
   AlertTriangle,
+  X
 } from "lucide-react";
 
 import type { PlaceSuggestion } from "@/types/places";
@@ -31,6 +32,8 @@ interface Props {
     trafficDelay: number;
     description: string;
   };
+
+  onClose: () => void;
 }
 
 export default function ResultCard({
@@ -40,6 +43,7 @@ export default function ResultCard({
   destination,
   arrivalTime,
   routeInfo,
+  onClose
 }: Props) {
   const traffic =
     routeInfo.trafficDelay >= 15
@@ -78,6 +82,15 @@ export default function ResultCard({
 
   return (
     <div className="space-y-5 rounded-3xl border border-zinc-800 bg-zinc-950 p-5 shadow-xl">
+      {/* Close Button */}
+      <button
+          type="button"
+          onClick={onClose}
+          className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 transition hover:bg-white/15 hover:text-white"
+          aria-label="Close result"
+        >
+          <X className="shrink-0 text-white-200/50 font-semibold" size={18} />
+      </button>
 
       {/* RESULT */}
       <div className="space-y-1 text-center">

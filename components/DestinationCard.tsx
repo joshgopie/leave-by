@@ -8,11 +8,13 @@ import type { PlaceSuggestion } from "@/types/places";
 
 interface DestinationCardProps {
   onSelect: (place: PlaceSuggestion) => void;
+  onClear: () => void;
 }
 
 
 export default function DestinationCard({
   onSelect,
+  onClear,
 }: DestinationCardProps) {
 
   return (
@@ -51,6 +53,7 @@ export default function DestinationCard({
 
           <PlaceAutocomplete
             onSelect={onSelect}
+            onClear={onClear}
           />
 
         </div>

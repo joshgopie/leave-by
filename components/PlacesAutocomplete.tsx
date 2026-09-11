@@ -20,6 +20,7 @@ import type { PlaceSuggestion } from "@/types/places";
 
 interface Props {
   onSelect: (place: PlaceSuggestion) => void;
+  onClear: () => void;
 }
 
 
@@ -31,6 +32,7 @@ const MAX_RECENT_DESTINATIONS = 8;
 
 export default function PlaceAutocomplete({
   onSelect,
+  onClear,
 }: Props) {
 
   /* ==========================================================
@@ -154,6 +156,8 @@ export default function PlaceAutocomplete({
     setQuery("");
 
     setSelected(false);
+
+    onClear();
 
     /*
       Keep the keyboard active.

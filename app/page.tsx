@@ -80,6 +80,7 @@ export default function Home() {
   // --------------------------------------------------
 
   async function calculateLeaveTime(
+    
     calculationMode: "arrive" | "leaveNow" = mode,
     values?: {
       arrivalDate?: string;
@@ -87,6 +88,7 @@ export default function Home() {
       destination?: PlaceSuggestion;
     }
   ) {
+    console.log("CALCULATE FINISH", calculationMode);
     if (!location) {
       setCalculationError(
         "We can't calculate your route because your current location is unavailable."
@@ -217,6 +219,7 @@ export default function Home() {
           },
           destinationPlaceId: selectedDestination.placeId,
           departureTime,
+          mode: calculationMode,
         }),
       });
 
@@ -375,6 +378,8 @@ export default function Home() {
         description: data.description ?? "",
       });
 
+      console.log("CALCULATE FINISH", calculationMode);
+
       setHasCalculated(true);
       hasCalculatedRef.current = true;
 
@@ -445,120 +450,157 @@ export default function Home() {
         )}
 
         <DestinationCard
+            onClear={() => {
+              setDestination(null);
+              setHasCalculated(false);
+              hasCalculatedRef.current = false;
+              setLeaveTime("");
+              setEstimatedArrivalTime("");
+            }}
             onSelect={(place) => {
-              // If we're currently on Leave Now,
-              // remember that the destination changed.
               if (mode === "leaveNow") {
+                // Destination changed while in Leave Now
                 leaveNowDestinationChangedRef.current = true;
-              }
 
-              setDestination(place);
+                setDestination(place);
 
-              if (hasCalculatedRef.current) {
-                calculateLeaveTime(mode, {
+                // Always recalculate Leave Now
+                calculateLeaveTime("leaveNow", {
                   destination: place,
                 });
+
+                return;
               }
+
+              // Arrive By:
+              // Only change the destination.
+              // Do NOT recalculate.
+              setDestination(place);
+              setHasCalculated(false);
+              hasCalculatedRef.current = false;
             }}
-         />
+          />
 
-       <ArrivalTimeCard
-          value={arrivalTime}
-          onChange={setArrivalTime}
-          mode={mode}
-          onModeChange={(newMode) => {
-            if (newMode === "arrive") {
-              // If no arrival date/time has been selected,
-              // show the error but still switch to Arrive By.
-              if (mode === "leaveNow" && leaveNowDestinationChangedRef.current) {
-                setCalculationError(
-                  "Please select an arrival date and time."
-                );
+   
+          <ArrivalTimeCard
+            value={arrivalTime}
+            onChange={setArrivalTime}
+            mode={mode}
+            onModeChange={(newMode) => {
+              if (newMode === mode) {
+                return;
+              }
+              if (newMode === "arrive") {
 
+                // If the destination was changed while in Leave Now,
+                // switch to Arrive By but require a new arrival time.
+                if (
+                  mode === "leaveNow" && 
+                  (
+                    leaveNowDestinationRef.current !== destination?.placeId || !arrivalDate ||
+                    !arrivalTime
+                  )
+                  
+                ) {
+                  setCalculationError(
+                    "Please select an arrival date and time."
+                  );
+
+                  setMode("arrive");
+                  setHasCalculated(false);
+                  hasCalculatedRef.current = false;
+
+                  return;
+                }
+
+                // If we have a previous Arrive By calculation
+                // for the current destination, restore it.
+                if (
+                  lastArriveBy &&
+                  lastArriveBy.destinationPlaceId === destination?.placeId
+                ) {
+                  setMode("arrive");
+                  setArrivalDate(lastArriveBy.arrivalDate);
+                  setArrivalTime(lastArriveBy.arrivalTime);
+                  setLeaveTime(lastArriveBy.leaveTime);
+                  setRouteInfo(lastArriveBy.routeInfo);
+                  setEstimatedArrivalTime("");
+                  setHasCalculated(true);
+                  hasCalculatedRef.current = true;
+
+                  return;
+                }
+
+                // Otherwise, simply switch to Arrive By.
                 setMode("arrive");
-                setHasCalculated(false);
-                hasCalculatedRef.current = false;
 
-                 
                 return;
               }
 
-              // If we have a previous Arrive By calculation,
-              // restore it when switching back.
-              if (
-                lastArriveBy &&
-                lastArriveBy.destinationPlaceId === destination?.placeId
-              ) {
-                setMode("arrive");
-                setArrivalDate(lastArriveBy.arrivalDate);
-                setArrivalTime(lastArriveBy.arrivalTime);
-                setLeaveTime(lastArriveBy.leaveTime);
-                setRouteInfo(lastArriveBy.routeInfo);
-                setEstimatedArrivalTime("");
-                setHasCalculated(true);
-                hasCalculatedRef.current = true;
+              if (newMode === "leaveNow") {
+                // We are entering Leave Now.
+                // A destination change has not happened yet.
+                leaveNowDestinationRef.current =
+                  destination?.placeId ?? null;
 
-                return;
-              }
+                leaveNowDestinationChangedRef.current = false;
 
-              setMode("arrive");
+                // If we have a previous Leave Now calculation
+                // for the current destination, restore it.
+                if (
+                  lastLeaveNow &&
+                  lastLeaveNow.destinationPlaceId === destination?.placeId
+                ) {
+                  setMode("leaveNow");
+                  setLeaveTime(lastLeaveNow.leaveTime);
+                  setEstimatedArrivalTime(
+                    lastLeaveNow.estimatedArrivalTime
+                  );
+                  setRouteInfo(lastLeaveNow.routeInfo);
+                  setHasCalculated(true);
+                  hasCalculatedRef.current = true;
 
-              return;
-            }
+                  return;
+                }
 
-            if (newMode === "leaveNow") {
-              // If we have a previous Leave Now calculation
-              // for the current destination, restore it.
-              
-              // We are entering Leave Now with the current destination.
-              leaveNowDestinationRef.current= destination?.placeId ?? null;
-              
-               // Reset the "destination changed" flag.
-              leaveNowDestinationChangedRef.current = false;
-
-
-              if (
-                lastLeaveNow &&
-                lastLeaveNow.destinationPlaceId === destination?.placeId
-              ) {
+                // No matching cached Leave Now result.
+                // Calculate a fresh one.
                 setMode("leaveNow");
-                setLeaveTime(lastLeaveNow.leaveTime);
-                setEstimatedArrivalTime(lastLeaveNow.estimatedArrivalTime);
-                setRouteInfo(lastLeaveNow.routeInfo);
-                setHasCalculated(true);
-                hasCalculatedRef.current = true;
+                calculateLeaveTime("leaveNow");
 
                 return;
               }
 
-              // No matching cached Leave Now result.
-              // Calculate a fresh one.
-              setMode("leaveNow");
-              calculateLeaveTime("leaveNow");
-
-              return;
-            }
-
-            setMode(newMode);
-          }}
-          onDateChange={setArrivalDate}
-          onCalculate={calculateLeaveTime}
-        />
-
-        {hasCalculated && leaveTime && (
-          <div ref={resultRef}>
-            <ResultCard
-              mode={mode}
-              leaveTime={leaveTime}
-              location={location}
-              destination={destination}
-              arrivalTime={
-                mode === "arrive"
-                  ? arrivalTime
-                  : estimatedArrivalTime
-              }
-              routeInfo={routeInfo}
+                  setMode(newMode);
+                }}
+                onDateChange={setArrivalDate}
+                onCalculate={calculateLeaveTime}
             />
+
+
+
+       
+
+              {hasCalculated && leaveTime && (
+                <div ref={resultRef}>
+                  <ResultCard
+                    mode={mode}
+                    leaveTime={leaveTime}
+                    location={location}
+                    destination={destination}
+                    arrivalTime={
+                      mode === "arrive"
+                        ? arrivalTime
+                        : estimatedArrivalTime
+                    }
+                    routeInfo={routeInfo}
+                    onClose={() => {
+                      setHasCalculated(false);
+                      hasCalculatedRef.current = false;
+                      setLeaveTime("");
+                      setEstimatedArrivalTime("");
+                    }}
+                  />
           </div>
         )}
       </div>
