@@ -8,9 +8,9 @@ import { reverseGeocode } from "@/lib/googleMaps";
 // --------------------------------------------------
 
 export interface UserLocation {
-  latitude: number;
-  longitude: number;
-  address: string;
+latitude: number;
+longitude: number;
+address: string;
 }
 
 // --------------------------------------------------
@@ -19,42 +19,42 @@ export interface UserLocation {
 
 const MOVEMENT_THRESHOLD_METERS = 50;
 
+// Accept a new GPS fix if its accuracy improves
+// by at least this amount.
+const ACCURACY_IMPROVEMENT_METERS = 20;
+
 // --------------------------------------------------
 // DISTANCE CALCULATION
 // --------------------------------------------------
 
 function getDistanceInMeters(
-  latitude1: number,
-  longitude1: number,
-  latitude2: number,
-  longitude2: number
+latitude1: number,
+longitude1: number,
+latitude2: number,
+longitude2: number
 ): number {
-  const earthRadius = 6371000;
+const earthRadius = 6371000;
 
-  const latitudeDifference =
-    (latitude2 - latitude1) *
-    Math.PI /
-    180;
+const latitudeDifference =
+((latitude2 - latitude1) * Math.PI) / 180;
 
-  const longitudeDifference =
-    (longitude2 - longitude1) *
-    Math.PI /
-    180;
+const longitudeDifference =
+((longitude2 - longitude1) * Math.PI) / 180;
 
-  const a =
-    Math.sin(latitudeDifference / 2) ** 2 +
-    Math.cos(latitude1 * Math.PI / 180) *
-    Math.cos(latitude2 * Math.PI / 180) *
-    Math.sin(longitudeDifference / 2) ** 2;
+const a =
+Math.sin(latitudeDifference / 2) ** 2 +
+Math.cos((latitude1 * Math.PI) / 180) *
+Math.cos((latitude2 * Math.PI) / 180) *
+Math.sin(longitudeDifference / 2) ** 2;
 
-  const c =
-    2 *
-    Math.atan2(
-      Math.sqrt(a),
-      Math.sqrt(1 - a)
-    );
+const c =
+2 *
+Math.atan2(
+Math.sqrt(a),
+Math.sqrt(1 - a)
+);
 
-  return earthRadius * c;
+return earthRadius * c;
 }
 
 // --------------------------------------------------
@@ -62,260 +62,324 @@ function getDistanceInMeters(
 // --------------------------------------------------
 
 export function useLocation() {
+// ==================================================
+// STATE
+// ==================================================
 
-  // ==================================================
-  // STATE
-  // ==================================================
+const [location, setLocation] =
+useState<UserLocation | null>(null);
 
-  const [location, setLocation] =
-    useState<UserLocation | null>(null);
+const [loading, setLoading] =
+useState(true);
 
-  const [loading, setLoading] =
-    useState(true);
+const [error, setError] =
+useState<string | null>(null);
 
-  const [error, setError] =
-    useState<string | null>(null);
+// ==================================================
+// REFS
+// ==================================================
 
+// Last GPS fix that was accepted by the application.
+const previousLocation = useRef<{
+latitude: number;
+longitude: number;
+accuracy: number;
+} | null>(null);
 
-  // ==================================================
-  // REFS
-  // ==================================================
+// ID returned by navigator.geolocation.watchPosition().
+const watchId = useRef<number | null>(null);
 
-  // Stores the last location that was considered
-  // meaningful enough to update the application.
-  const previousCoordinates = useRef<{
-    latitude: number;
-    longitude: number;
-  } | null>(null);
+// Prevent multiple watchers from being created.
+const watcherActive = useRef(false);
 
-  // Prevents multiple GPS requests from running
-  // at the same time.
-  const requestInProgress = useRef(false);
+// Prevent multiple reverse-geocoding requests
+// from happening simultaneously.
+const reverseGeocodeInProgress = useRef(false);
 
+// ==================================================
+// STOP WATCHING LOCATION
+// ==================================================
 
-  // ==================================================
-  // REFRESH LOCATION
-  // ==================================================
-
-  const refreshLocation = useCallback(() => {
-
-    // ----------------------------------------------
-    // Browser support
-    // ----------------------------------------------
-
-    if (!navigator.geolocation) {
-
-      setError(
-        "Location services are not supported by this browser."
-      );
-
-      setLoading(false);
-
-      return;
-    }
+const stopWatchingLocation = useCallback(() => {
+if (watchId.current !== null) {
+navigator.geolocation.clearWatch(
+watchId.current
+);
 
 
-    // ----------------------------------------------
-    // Prevent duplicate requests
-    // ----------------------------------------------
+  watchId.current = null;
+}
 
-    if (requestInProgress.current) {
-      return;
-    }
-
-    requestInProgress.current = true;
-
-    setLoading(true);
-    setError(null);
+watcherActive.current = false;
 
 
-    // ----------------------------------------------
-    // Get current GPS position
-    // ----------------------------------------------
+}, []);
 
-    navigator.geolocation.getCurrentPosition(
+// ==================================================
+// START WATCHING LOCATION
+// ==================================================
 
-      async (position) => {
-
-        try {
-
-          const latitude =
-            position.coords.latitude;
-
-          const longitude =
-            position.coords.longitude;
+const startWatchingLocation = useCallback(() => {
+// ----------------------------------------------
+// Browser support
+// ----------------------------------------------
 
 
-          // ==================================================
-          // CHECK FOR MEANINGFUL MOVEMENT
-          // ==================================================
+if (!navigator.geolocation) {
+  setError(
+    "Location services are not supported by this browser."
+  );
 
-          if (previousCoordinates.current) {
+  setLoading(false);
 
-            const distance =
-              getDistanceInMeters(
-                previousCoordinates.current.latitude,
-                previousCoordinates.current.longitude,
-                latitude,
-                longitude
-              );
+  return;
+}
 
+// ----------------------------------------------
+// Prevent duplicate watchers
+// ----------------------------------------------
 
+if (watcherActive.current) {
+  return;
+}
 
+watcherActive.current = true;
 
-            // ----------------------------------------------
-            // Ignore insignificant GPS movement
-            // ----------------------------------------------
+setLoading(true);
+setError(null);
 
-            if (
-              distance <
-              MOVEMENT_THRESHOLD_METERS
-            ) {
+// ----------------------------------------------
+// Start GPS watcher
+// ----------------------------------------------
 
-              return;
-            }
+watchId.current =
+  navigator.geolocation.watchPosition(
+    async (position) => {
+      try {
+        const latitude =
+          position.coords.latitude;
+
+        const longitude =
+          position.coords.longitude;
+
+        const accuracy =
+          position.coords.accuracy;
+
+        // Useful during testing.
+        console.log(
+          "GPS update:",
+          {
+            latitude,
+            longitude,
+            accuracy,
           }
+        );
 
+        // ==================================================
+        // CHECK WHETHER THIS FIX IS MEANINGFUL
+        // ==================================================
 
-          // ==================================================
-          // REVERSE GEOCODE
-          // ==================================================
+        const previous =
+          previousLocation.current;
 
-          const data =
-            await reverseGeocode(
+        if (previous) {
+          const distance =
+            getDistanceInMeters(
+              previous.latitude,
+              previous.longitude,
               latitude,
               longitude
             );
 
+          const accuracyImproved =
+            accuracy <
+            previous.accuracy -
+              ACCURACY_IMPROVEMENT_METERS;
 
-          // ==================================================
-          // SAVE NEW COORDINATES
-          // ==================================================
+          const movedEnough =
+            distance >=
+            MOVEMENT_THRESHOLD_METERS;
 
-          previousCoordinates.current = {
-            latitude,
-            longitude,
-          };
-
-
-          // ==================================================
-          // UPDATE LOCATION
-          // ==================================================
-
-          setLocation({
-            latitude,
-            longitude,
-            address: data.address,
-          });
-
-        } catch (error) {
-
-          console.error(
-            "Location refresh failed:",
-            error
-          );
-
-          setError(
-            "Unable to determine your current location."
-          );
-
-        } finally {
-
-          requestInProgress.current = false;
-
-          setLoading(false);
+          // Ignore tiny GPS changes unless the new
+          // reading is substantially more accurate.
+          if (
+            !movedEnough &&
+            !accuracyImproved
+          ) {
+            return;
+          }
         }
-      },
 
+        // ==================================================
+        // PREVENT DUPLICATE REVERSE GEOCODING
+        // ==================================================
 
-      // ==================================================
-      // GPS ERROR
-      // ==================================================
+        if (
+          reverseGeocodeInProgress.current
+        ) {
+          return;
+        }
 
-      (error) => {
+        reverseGeocodeInProgress.current = true;
 
+        // ==================================================
+        // REVERSE GEOCODE
+        // ==================================================
+
+        const data =
+          await reverseGeocode(
+            latitude,
+            longitude
+          );
+
+        // ==================================================
+        // SAVE ACCEPTED GPS FIX
+        // ==================================================
+
+        previousLocation.current = {
+          latitude,
+          longitude,
+          accuracy,
+        };
+
+        // ==================================================
+        // UPDATE LOCATION
+        // ==================================================
+
+        setLocation({
+          latitude,
+          longitude,
+          address: data.address,
+        });
+
+        setError(null);
+      } catch (error) {
         console.error(
-          "Geolocation error:",
+          "Location update failed:",
           error
         );
 
-        requestInProgress.current = false;
-
         setError(
-          "Unable to access your current location."
+          "Unable to determine your current location."
         );
-
+      } finally {
+        reverseGeocodeInProgress.current = false;
         setLoading(false);
-      },
-
-
-      // ==================================================
-      // GPS OPTIONS
-      // ==================================================
-
-      {
-        enableHighAccuracy: true,
-        timeout: 30000,
-        maximumAge: 0,
       }
-    );
+    },
 
-  }, []);
+    // ==================================================
+    // GPS ERROR
+    // ==================================================
 
-
-  // ==================================================
-  // INITIAL LOCATION
-  // ==================================================
-
-  useEffect(() => {
-
-    refreshLocation();
-
-  }, [refreshLocation]);
-
-
-  // ==================================================
-  // REFRESH WHEN APP BECOMES ACTIVE
-  // ==================================================
-
-  useEffect(() => {
-
-    function handleVisibilityChange() {
-
-      if (
-        document.visibilityState === "visible"
-      ) {
-
-
-        refreshLocation();
-      }
-    }
-
-
-    document.addEventListener(
-      "visibilitychange",
-      handleVisibilityChange
-    );
-
-
-    return () => {
-
-      document.removeEventListener(
-        "visibilitychange",
-        handleVisibilityChange
+    (error) => {
+      console.error(
+        "Geolocation error:",
+        error
       );
-    };
 
-  }, [refreshLocation]);
+      setError(
+        "Unable to access your current location."
+      );
+
+      setLoading(false);
+    },
+
+    // ==================================================
+    // GPS OPTIONS
+    // ==================================================
+
+    {
+      enableHighAccuracy: true,
+      timeout: 30000,
+      maximumAge: 0,
+    }
+  );
 
 
-  // ==================================================
-  // RETURN
-  // ==================================================
+}, []);
 
-  return {
-    location,
-    loading,
-    error,
-  };
+// ==================================================
+// START LOCATION WATCHER
+// ==================================================
+
+useEffect(() => {
+startWatchingLocation();
+
+
+return () => {
+  stopWatchingLocation();
+};
+
+
+}, [
+startWatchingLocation,
+stopWatchingLocation,
+]);
+
+// ==================================================
+// APP VISIBILITY
+// ==================================================
+
+useEffect(() => {
+function handleVisibilityChange() {
+// ----------------------------------------------
+// App went into background
+// ----------------------------------------------
+
+
+  if (
+    document.visibilityState === "hidden"
+  ) {
+    console.log(
+      "App backgrounded — stopping GPS watcher."
+    );
+
+    stopWatchingLocation();
+
+    return;
+  }
+
+  // ----------------------------------------------
+  // App became active again
+  // ----------------------------------------------
+
+  if (
+    document.visibilityState === "visible"
+  ) {
+    console.log(
+      "App active — starting GPS watcher."
+    );
+
+    startWatchingLocation();
+  }
+}
+
+document.addEventListener(
+  "visibilitychange",
+  handleVisibilityChange
+);
+
+return () => {
+  document.removeEventListener(
+    "visibilitychange",
+    handleVisibilityChange
+  );
+};
+
+
+}, [
+startWatchingLocation,
+stopWatchingLocation,
+]);
+
+// ==================================================
+// RETURN
+// ==================================================
+
+return {
+location,
+loading,
+error,
+};
 }

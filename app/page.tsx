@@ -88,7 +88,7 @@ export default function Home() {
       destination?: PlaceSuggestion;
     }
   ) {
-    console.log("CALCULATE FINISH", calculationMode);
+
     if (!location) {
       setCalculationError(
         "We can't calculate your route because your current location is unavailable."
@@ -378,7 +378,7 @@ export default function Home() {
         description: data.description ?? "",
       });
 
-      console.log("CALCULATE FINISH", calculationMode);
+    
 
       setHasCalculated(true);
       hasCalculatedRef.current = true;
