@@ -925,10 +925,6 @@ export default function ArrivalTimeCard({
   function openPicker() {
     pickerOpening.current = true;
 
-    /*
-      If there is no value yet, use the current
-      rounded time.
-    */
     if (!value) {
       const currentTime =
         getCurrentRoundedTime();
@@ -938,10 +934,6 @@ export default function ArrivalTimeCard({
       );
     }
 
-    /*
-      Always make sure the date starts on Today
-      if nothing has been selected.
-    */
     if (!selectedDate) {
       setSelectedDate(
         formatDateValue(getToday())
@@ -959,10 +951,6 @@ export default function ArrivalTimeCard({
     if (!isOpen) return;
 
     const timer = window.setTimeout(() => {
-      /*
-        Calculate the exact indexes.
-      */
-
       const hourIndex = getMiddleIndex(
         selectedHour - 1,
         HOURS.length
@@ -989,17 +977,7 @@ export default function ArrivalTimeCard({
           ? selectedDateOption
           : 0;
 
-      /*
-        Lock scroll handlers while the wheels
-        are being positioned.
-      */
-
       isProgrammaticScroll.current = true;
-
-      /*
-        Position everything WITHOUT smooth scrolling.
-        This ensures the picker starts correctly.
-      */
 
       if (hourPickerRef.current) {
         hourPickerRef.current.scrollTop =
@@ -1032,11 +1010,6 @@ export default function ArrivalTimeCard({
 
       lastDateIndexRef.current =
         dateIndex;
-
-      /*
-        Release the scroll lock after the browser
-        has painted the initial picker position.
-      */
 
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
@@ -1189,23 +1162,25 @@ export default function ArrivalTimeCard({
 
           {/* MODE BUTTONS */}
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 rounded-2xl bg-white/[0.20] p-1.5">
             <button
               type="button"
               onClick={() =>
                 onModeChange("arrive")
               }
               className={`
+                flex-1
                 rounded-xl
                 px-4
-                py-2
+                py-2.5
                 text-sm
-                font-medium
-                transition
+                font-semibold
+                transition-all
+                duration-200
                 ${
                   mode === "arrive"
-                    ? "bg-blue-600 text-black"
-                    : "bg-zinc-800 text-white hover:bg-zinc-700"
+                    ? "bg-blue-500 text-white shadow-lg  bg-blue-500/20"
+                    : "text-zinc-400 hover:bg-zinc-800 hover:text-white"
                 }
               `}
             >
@@ -1218,16 +1193,18 @@ export default function ArrivalTimeCard({
                 onModeChange("leaveNow");
               }}
               className={`
+                flex-1
                 rounded-xl
                 px-4
-                py-2
+                py-2.5
                 text-sm
-                font-medium
-                transition
+                font-semibold
+                transition-all
+                duration-200
                 ${
                   mode === "leaveNow"
-                    ? "bg-blue-600 text-black"
-                    : "bg-zinc-800 text-white hover:bg-zinc-700"
+                    ? "bg-blue-500 text-white shadow-lg  bg-blue-500/20"
+                    : "text-zinc-400 hover:bg-zinc-800 hover:text-white"
                 }
               `}
             >
@@ -1238,21 +1215,17 @@ export default function ArrivalTimeCard({
           {/* HEADER */}
 
           <div className="flex items-center gap-3">
-            <div className="rounded-2xl bg-blue-500/20 p-2">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-500/10 ring-1 ring-blue-500/10">
               <Clock3
-                className="text-blue-200/50"
-                size={22}
+                className="text-blue-400"
+                size={21}
               />
             </div>
 
-            <div>
-              <p className="text-sm text-zinc-400">
-                {mode === "arrive"
-                  ? "Arrive By"
-                  : "Leave Now"}
-              </p>
+            <div className="min-w-0">
+             
 
-              <h2 className="font-semibold">
+              <h2 className="mt-0.5 text-[15px] font-semibold leading-5 text-white">
                 {mode === "arrive"
                   ? "What time do you need to arrive?"
                   : "Travel duration will be calculated based on your current time"}
@@ -1267,40 +1240,44 @@ export default function ArrivalTimeCard({
               type="button"
               onClick={openPicker}
               className="
+                group
                 flex
                 w-full
                 items-center
                 justify-between
                 rounded-2xl
-                border
-                border-zinc-800
-                bg-zinc-950
-                px-5
+                bg-white/[0.08]
+                px-4
                 py-4
                 text-left
-                transition
+                shadow-sm
+                transition-all
+                duration-200
                 hover:border-zinc-700
+                hover:bg-zinc-900
                 active:scale-[0.99]
               "
             >
               <div className="flex items-center gap-3">
-                <Clock3
-                  size={20}
-                  className="text-blue-200/50"
-                />
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/10">
+                  <Clock3
+                    size={19}
+                    className="text-blue-400"
+                  />
+                </div>
 
                 <div>
-                  <span className="block text-2xl font-semibold">
+                  <span className="block text-3xl font-bold tracking-tight text-white">
                     {formattedTime}
                   </span>
 
-                  <span className="mt-0.5 block text-xs text-zinc-500">
+                  <span className="mt-0.5 block text-xs font-medium text-zinc-500">
                     {selectedDateLabel}
                   </span>
                 </div>
               </div>
 
-              <span className="text-sm text-zinc-500">
+              <span className="rounded-lg bg-white/[0.10] px-3 py-1.5 text-xs font-medium text-zinc-400 transition-colors group-hover:text-zinc-200">
                 Change
               </span>
             </button>
@@ -1321,9 +1298,9 @@ export default function ArrivalTimeCard({
             flex
             items-center
             justify-center
-            bg-black/60
+            bg-black/70
             px-4
-            backdrop-blur-sm
+            backdrop-blur-md
           "
           onClick={handleCancel}
         >
@@ -1332,11 +1309,12 @@ export default function ArrivalTimeCard({
               w-full
               max-w-md
               overflow-hidden
-              rounded-3xl
+              rounded-[28px]
               border
-              border-zinc-800
+              border-zinc-800/80
               bg-zinc-950
               shadow-2xl
+              shadow-black/50
               animate-in
               slide-in-from-bottom
               duration-200
@@ -1353,37 +1331,27 @@ export default function ArrivalTimeCard({
                 items-center
                 justify-between
                 border-b
-                border-zinc-800
+                border-zinc-800/80
+                bg-zinc-950
                 px-4
-                py-3
+                py-3.5
               "
             >
               <button
-                type="button"
-                onClick={handleCancel}
-                className="
-                  flex
-                  h-9
-                  w-9
-                  items-center
-                  justify-center
-                  rounded-full
-                  text-zinc-400
-                  transition
-                  hover:bg-zinc-900
-                  hover:text-white
-                "
-                aria-label="Cancel"
-              >
-                <X size={18} />
+                  type="button"
+                  onClick={handleCancel}
+                  className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 transition hover:bg-white/15 hover:text-white"
+                  aria-label="Close result"
+                >
+                  <X className="shrink-0 text-white-200/50 font-semibold" size={18} />
               </button>
 
               <div className="text-center">
-                <p className="text-[10px] uppercase tracking-[0.16em] text-zinc-500">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-blue-400">
                   Arrive
                 </p>
 
-                <p className="mt-0.5 text-lg font-bold text-white">
+                <p className="mt-0.5 text-lg font-bold tracking-tight text-white">
                   {selectedHour}:
                   {selectedMinute
                     .toString()
@@ -1401,13 +1369,17 @@ export default function ArrivalTimeCard({
                 onClick={handleDone}
                 className="
                   rounded-xl
+                  bg-blue-600
                   px-3
                   py-2
                   text-sm
                   font-semibold
-                  bg-blue-600
+                  text-white
+                  shadow-lg
+                  shadow-blue-600/20
                   transition
                   hover:bg-blue-500
+                  active:scale-95
                 "
               >
                 Done
@@ -1417,13 +1389,13 @@ export default function ArrivalTimeCard({
             {/* DATE */}
 
             <div className="px-4 pt-4">
-              <div className="mb-2 flex items-center gap-2">
+              <div className="mb-2.5 flex items-center gap-2">
                 <CalendarDays
                   size={15}
-                  className="text-zinc-500"
+                  className="text-blue-400"
                 />
 
-                <span className="text-xs font-medium text-zinc-400">
+                <span className="text-xs font-semibold uppercase tracking-[0.12em] text-zinc-500">
                   Date
                 </span>
               </div>
@@ -1435,7 +1407,7 @@ export default function ArrivalTimeCard({
                   rounded-2xl
                   border
                   border-zinc-800
-                  bg-zinc-900/70
+                  bg-zinc-900/60
                 "
               >
                 {/* DATE FOCUS */}
@@ -1453,7 +1425,8 @@ export default function ArrivalTimeCard({
                     rounded-xl
                     border
                     border-blue-500/30
-                    bg-blue-500/5
+                    bg-blue-500/[0.06]
+                    shadow-[0_0_20px_rgba(59,130,246,0.04)]
                   "
                 />
 
@@ -1557,11 +1530,12 @@ export default function ArrivalTimeCard({
                             justify-center
                             gap-3
                             px-4
-                            transition
+                            transition-all
+                            duration-150
                             ${
                               isSelected
-                                ? "font-semibold text-blue-600"
-                                : "text-zinc-500"
+                                ? "font-semibold text-blue-400"
+                                : "text-zinc-500 hover:text-zinc-300"
                             }
                           `}
                         >
@@ -1590,13 +1564,13 @@ export default function ArrivalTimeCard({
             {/* TIME */}
 
             <div className="px-4 pb-4 pt-4">
-              <div className="mb-2 flex items-center gap-2">
+              <div className="mb-2.5 flex items-center gap-2">
                 <Clock3
                   size={15}
-                  className="text-zinc-500"
+                  className="text-blue-400"
                 />
 
-                <span className="text-xs font-medium text-zinc-400">
+                <span className="text-xs font-semibold uppercase tracking-[0.12em] text-zinc-500">
                   Time
                 </span>
               </div>
@@ -1626,7 +1600,7 @@ export default function ArrivalTimeCard({
                     rounded-xl
                     border
                     border-blue-500/30
-                    bg-blue-500/5
+                    bg-blue-500/[0.06]
                   "
                 />
 
@@ -1642,6 +1616,8 @@ export default function ArrivalTimeCard({
                     w-16
                     overflow-y-auto
                     rounded-2xl
+                    border
+                    border-zinc-800/70
                     bg-zinc-900
                     text-center
                     snap-y
@@ -1696,12 +1672,13 @@ export default function ArrivalTimeCard({
                           items-center
                           justify-center
                           text-lg
-                          transition
+                          transition-all
+                          duration-150
                           ${
                             selectedHour ===
                             hour
-                              ? "font-bold text-blue-600"
-                              : "text-zinc-500"
+                              ? "font-bold text-blue-400"
+                              : "text-zinc-500 hover:text-zinc-300"
                           }
                         `}
                       >
@@ -1725,7 +1702,7 @@ export default function ArrivalTimeCard({
                     z-10
                     text-xl
                     font-bold
-                    text-zinc-500
+                    text-zinc-600
                   "
                 >
                   :
@@ -1743,6 +1720,8 @@ export default function ArrivalTimeCard({
                     w-16
                     overflow-y-auto
                     rounded-2xl
+                    border
+                    border-zinc-800/70
                     bg-zinc-900
                     text-center
                     snap-y
@@ -1797,12 +1776,13 @@ export default function ArrivalTimeCard({
                           items-center
                           justify-center
                           text-lg
-                          transition
+                          transition-all
+                          duration-150
                           ${
                             selectedMinute ===
                             minute
-                              ? "font-bold text-blue-600"
-                              : "text-zinc-500"
+                              ? "font-bold text-blue-400"
+                              : "text-zinc-500 hover:text-zinc-300"
                           }
                         `}
                       >
@@ -1832,6 +1812,8 @@ export default function ArrivalTimeCard({
                     w-16
                     overflow-y-auto
                     rounded-2xl
+                    border
+                    border-zinc-800/70
                     bg-zinc-900
                     text-center
                     snap-y
@@ -1883,12 +1865,13 @@ export default function ArrivalTimeCard({
                           justify-center
                           text-lg
                           font-semibold
-                          transition
+                          transition-all
+                          duration-150
                           ${
                             selectedPeriod ===
                             period
-                              ? "font-bold text-blue-600"
-                              : "text-zinc-500"
+                              ? "font-bold text-blue-400"
+                              : "text-zinc-500 hover:text-zinc-300"
                           }
                         `}
                       >
@@ -1911,7 +1894,8 @@ export default function ArrivalTimeCard({
             <div
               className="
                 border-t
-                border-zinc-800
+                border-zinc-800/80
+                bg-zinc-950
                 p-3
                 pb-[calc(0.75rem+env(safe-area-inset-bottom))]
               "
@@ -1928,11 +1912,14 @@ export default function ArrivalTimeCard({
                   rounded-2xl
                   bg-blue-600
                   px-4
-                  py-3
+                  py-3.5
                   text-sm
                   font-bold
                   text-white
-                  transition
+                  shadow-lg
+                  shadow-blue-600/20
+                  transition-all
+                  duration-200
                   hover:bg-blue-500
                   active:scale-[0.98]
                 "

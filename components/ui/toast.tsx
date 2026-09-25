@@ -31,19 +31,33 @@ export default function Toast({
           max-w-lg
           rounded-3xl
           border
-          border-zinc-800
-          bg-zinc-950/95
+          border-white/[0.12]
+          bg-white/[0.08]
           px-5
           py-5
           text-white
           shadow-2xl
-          backdrop-blur-xl
+          shadow-black/30
+          backdrop-blur-2xl
         "
       >
         <div className="flex items-center gap-4">
 
           {/* ICON */}
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-600/15">
+          <div
+            className="
+              flex
+              h-10
+              w-10
+              shrink-0
+              items-center
+              justify-center
+              rounded-full
+              border
+              border-red-400/10
+              bg-red-500/15
+            "
+          >
             <AlertCircle
               size={22}
               className="text-red-400"
@@ -51,7 +65,16 @@ export default function Toast({
           </div>
 
           {/* MESSAGE */}
-          <p className="min-w-0 flex-1 text-sm font-medium leading-relaxed text-zinc-100">
+          <p
+            className="
+              min-w-0
+              flex-1
+              text-sm
+              font-medium
+              leading-relaxed
+              text-white/90
+            "
+          >
             {message}
           </p>
 
@@ -62,7 +85,7 @@ export default function Toast({
             className="
               shrink-0
               rounded-xl
-              bg-blue-600
+              bg-blue-500/80
               px-4
               py-2.5
               text-sm
@@ -71,8 +94,8 @@ export default function Toast({
               shadow-lg
               shadow-blue-950/30
               transition
+              hover:bg-blue-400/90
               active:scale-95
-              hover:bg-blue-500
             "
           >
             OK

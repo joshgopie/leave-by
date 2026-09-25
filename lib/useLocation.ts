@@ -8,14 +8,17 @@ import { reverseGeocode } from "@/lib/googleMaps";
 // --------------------------------------------------
 
 export interface UserLocation {
-latitude: number;
-longitude: number;
-address: string;
+  latitude: number;
+  longitude: number;
+  address: string;
+  accuracy?: number;
 }
 
 // --------------------------------------------------
 // CONFIGURATION
 // --------------------------------------------------
+
+const LOCATION_STORAGE_KEY = "leave-by-location";
 
 const MOVEMENT_THRESHOLD_METERS = 50;
 
@@ -28,33 +31,93 @@ const ACCURACY_IMPROVEMENT_METERS = 20;
 // --------------------------------------------------
 
 function getDistanceInMeters(
-latitude1: number,
-longitude1: number,
-latitude2: number,
-longitude2: number
+  latitude1: number,
+  longitude1: number,
+  latitude2: number,
+  longitude2: number
 ): number {
-const earthRadius = 6371000;
+  const earthRadius = 6371000;
 
-const latitudeDifference =
-((latitude2 - latitude1) * Math.PI) / 180;
+  const latitudeDifference =
+    ((latitude2 - latitude1) * Math.PI) / 180;
 
-const longitudeDifference =
-((longitude2 - longitude1) * Math.PI) / 180;
+  const longitudeDifference =
+    ((longitude2 - longitude1) * Math.PI) / 180;
 
-const a =
-Math.sin(latitudeDifference / 2) ** 2 +
-Math.cos((latitude1 * Math.PI) / 180) *
-Math.cos((latitude2 * Math.PI) / 180) *
-Math.sin(longitudeDifference / 2) ** 2;
+  const a =
+    Math.sin(latitudeDifference / 2) ** 2 +
+    Math.cos((latitude1 * Math.PI) / 180) *
+      Math.cos((latitude2 * Math.PI) / 180) *
+      Math.sin(longitudeDifference / 2) ** 2;
 
-const c =
-2 *
-Math.atan2(
-Math.sqrt(a),
-Math.sqrt(1 - a)
-);
+  const c =
+    2 *
+    Math.atan2(
+      Math.sqrt(a),
+      Math.sqrt(1 - a)
+    );
 
-return earthRadius * c;
+  return earthRadius * c;
+}
+
+// --------------------------------------------------
+// CACHE HELPERS
+// --------------------------------------------------
+
+function getCachedLocation(): UserLocation | null {
+  try {
+    const cached =
+      localStorage.getItem(
+        LOCATION_STORAGE_KEY
+      );
+
+    if (!cached) {
+      return null;
+    }
+
+    const parsed = JSON.parse(cached);
+
+    if (
+      typeof parsed?.latitude !== "number" ||
+      typeof parsed?.longitude !== "number" ||
+      typeof parsed?.address !== "string"
+    ) {
+      return null;
+    }
+
+    return {
+      latitude: parsed.latitude,
+      longitude: parsed.longitude,
+      address: parsed.address,
+      accuracy:
+        typeof parsed.accuracy === "number"
+          ? parsed.accuracy
+          : undefined,
+    };
+  } catch (error) {
+    console.error(
+      "Failed to load cached location:",
+      error
+    );
+
+    return null;
+  }
+}
+
+function saveCachedLocation(
+  location: UserLocation
+) {
+  try {
+    localStorage.setItem(
+      LOCATION_STORAGE_KEY,
+      JSON.stringify(location)
+    );
+  } catch (error) {
+    console.error(
+      "Failed to save cached location:",
+      error
+    );
+  }
 }
 
 // --------------------------------------------------
@@ -62,127 +125,224 @@ return earthRadius * c;
 // --------------------------------------------------
 
 export function useLocation() {
-// ==================================================
-// STATE
-// ==================================================
+  // ==================================================
+  // STATE
+  // ==================================================
 
-const [location, setLocation] =
-useState<UserLocation | null>(null);
+  const [location, setLocation] =
+    useState<UserLocation | null>(null);
 
-const [loading, setLoading] =
-useState(true);
+  const [loading, setLoading] =
+    useState(true);
 
-const [error, setError] =
-useState<string | null>(null);
+  const [error, setError] =
+    useState<string | null>(null);
 
-// ==================================================
-// REFS
-// ==================================================
+  // ==================================================
+  // REFS
+  // ==================================================
 
-// Last GPS fix that was accepted by the application.
-const previousLocation = useRef<{
-latitude: number;
-longitude: number;
-accuracy: number;
-} | null>(null);
+  // Last GPS location accepted by the application.
+  const previousLocation = useRef<{
+    latitude: number;
+    longitude: number;
+    accuracy: number;
+  } | null>(null);
 
-// ID returned by navigator.geolocation.watchPosition().
-const watchId = useRef<number | null>(null);
+  // ID returned by navigator.geolocation.watchPosition().
+  const watchId = useRef<number | null>(null);
 
-// Prevent multiple watchers from being created.
-const watcherActive = useRef(false);
+  // Prevent multiple watchers from being created.
+  const watcherActive = useRef(false);
 
-// Prevent multiple reverse-geocoding requests
-// from happening simultaneously.
-const reverseGeocodeInProgress = useRef(false);
+  // Prevent multiple reverse-geocoding requests
+  // from running simultaneously.
+  const reverseGeocodeInProgress = useRef(false);
 
-// ==================================================
-// STOP WATCHING LOCATION
-// ==================================================
+  // ==================================================
+  // LOAD CACHED LOCATION
+  // ==================================================
 
-const stopWatchingLocation = useCallback(() => {
-if (watchId.current !== null) {
-navigator.geolocation.clearWatch(
-watchId.current
-);
+  useEffect(() => {
+    const cachedLocation =
+      getCachedLocation();
 
+    if (cachedLocation) {
+      // Show the cached location immediately.
+      setLocation(cachedLocation);
 
-  watchId.current = null;
-}
+      // The user already has a usable location,
+      // so don't show the loading state while
+      // waiting for a new GPS fix.
+      setLoading(false);
 
-watcherActive.current = false;
+      // Use the cached location as the baseline
+      // for deciding whether the device has moved.
+      previousLocation.current = {
+        latitude: cachedLocation.latitude,
+        longitude: cachedLocation.longitude,
+        accuracy:
+          cachedLocation.accuracy ??
+          Number.POSITIVE_INFINITY,
+      };
+    }
+  }, []);
 
+  // ==================================================
+  // STOP WATCHING LOCATION
+  // ==================================================
 
-}, []);
+  const stopWatchingLocation = useCallback(() => {
+    if (watchId.current !== null) {
+      navigator.geolocation.clearWatch(
+        watchId.current
+      );
 
-// ==================================================
-// START WATCHING LOCATION
-// ==================================================
+      watchId.current = null;
+    }
 
-const startWatchingLocation = useCallback(() => {
-// ----------------------------------------------
-// Browser support
-// ----------------------------------------------
+    watcherActive.current = false;
+  }, []);
 
+  // ==================================================
+  // START WATCHING LOCATION
+  // ==================================================
 
-if (!navigator.geolocation) {
-  setError(
-    "Location services are not supported by this browser."
-  );
+  const startWatchingLocation = useCallback(() => {
+    // ----------------------------------------------
+    // Browser support
+    // ----------------------------------------------
 
-  setLoading(false);
+    if (!navigator.geolocation) {
+      setError(
+        "Location services are not supported by this browser."
+      );
 
-  return;
-}
+      setLoading(false);
 
-// ----------------------------------------------
-// Prevent duplicate watchers
-// ----------------------------------------------
+      return;
+    }
 
-if (watcherActive.current) {
-  return;
-}
+    // ----------------------------------------------
+    // Prevent duplicate watchers
+    // ----------------------------------------------
 
-watcherActive.current = true;
+    if (watcherActive.current) {
+      return;
+    }
 
-setLoading(true);
-setError(null);
+    watcherActive.current = true;
 
-// ----------------------------------------------
-// Start GPS watcher
-// ----------------------------------------------
+    // Only show loading if we don't already have
+    // a cached location displayed.
+    setLocation((current) => {
+      if (!current) {
+        setLoading(true);
+      }
 
-watchId.current =
-  navigator.geolocation.watchPosition(
-    async (position) => {
-      try {
-        const latitude =
-          position.coords.latitude;
+      return current;
+    });
 
-        const longitude =
-          position.coords.longitude;
+    setError(null);
 
-        const accuracy =
-          position.coords.accuracy;
+    // ----------------------------------------------
+    // Start GPS watcher
+    // ----------------------------------------------
 
-        // Useful during testing.
-        console.log(
-          "GPS update:",
-          {
-            latitude,
-            longitude,
-            accuracy,
+    watchId.current =
+      navigator.geolocation.watchPosition(
+        (position) => {
+          const latitude =
+            position.coords.latitude;
+
+          const longitude =
+            position.coords.longitude;
+
+          const accuracy =
+            position.coords.accuracy;
+
+          // ==================================================
+          // FIRST GPS FIX
+          // ==================================================
+
+          const previous =
+            previousLocation.current;
+
+          // If there is no previous location,
+          // this is the first usable GPS fix.
+          if (!previous) {
+            previousLocation.current = {
+              latitude,
+              longitude,
+              accuracy,
+            };
+
+            const initialLocation: UserLocation = {
+              latitude,
+              longitude,
+              address: "",
+              accuracy,
+            };
+
+            setLocation(initialLocation);
+            setLoading(false);
+            setError(null);
+
+            // We have no cached address, so we need
+            // to reverse-geocode this first location.
+            if (
+              !reverseGeocodeInProgress.current
+            ) {
+              reverseGeocodeInProgress.current =
+                true;
+
+              void (async () => {
+                try {
+                  const data =
+                    await reverseGeocode(
+                      latitude,
+                      longitude
+                    );
+
+                  const updatedLocation: UserLocation = {
+                    latitude,
+                    longitude,
+                    address: data.address,
+                    accuracy,
+                  };
+
+                  setLocation(
+                    updatedLocation
+                  );
+
+                  saveCachedLocation(
+                    updatedLocation
+                  );
+                } catch (error) {
+                  console.error(
+                    "Reverse geocoding failed:",
+                    error
+                  );
+
+                  // The GPS location is still valid,
+                  // even if the address lookup fails.
+                  saveCachedLocation(
+                    initialLocation
+                  );
+                } finally {
+                  reverseGeocodeInProgress.current =
+                    false;
+                }
+              })();
+            }
+
+            return;
           }
-        );
 
-        // ==================================================
-        // CHECK WHETHER THIS FIX IS MEANINGFUL
-        // ==================================================
+          // ==================================================
+          // CHECK WHETHER LOCATION HAS CHANGED ENOUGH
+          // ==================================================
 
-        const previous =
-          previousLocation.current;
-
-        if (previous) {
           const distance =
             getDistanceInMeters(
               previous.latitude,
@@ -200,186 +360,182 @@ watchId.current =
             distance >=
             MOVEMENT_THRESHOLD_METERS;
 
-          // Ignore tiny GPS changes unless the new
-          // reading is substantially more accurate.
+          // Ignore small GPS changes unless the
+          // new reading is substantially more accurate.
           if (
             !movedEnough &&
             !accuracyImproved
           ) {
             return;
           }
-        }
 
-        // ==================================================
-        // PREVENT DUPLICATE REVERSE GEOCODING
-        // ==================================================
+          // ==================================================
+          // ACCEPT THE NEW GPS FIX
+          // ==================================================
 
-        if (
-          reverseGeocodeInProgress.current
-        ) {
-          return;
-        }
-
-        reverseGeocodeInProgress.current = true;
-
-        // ==================================================
-        // REVERSE GEOCODE
-        // ==================================================
-
-        const data =
-          await reverseGeocode(
+          previousLocation.current = {
             latitude,
-            longitude
+            longitude,
+            accuracy,
+          };
+
+          setError(null);
+          setLoading(false);
+
+          // ==================================================
+          // REVERSE GEOCODE ONLY WHEN NECESSARY
+          // ==================================================
+
+          if (
+            reverseGeocodeInProgress.current
+          ) {
+            return;
+          }
+
+          reverseGeocodeInProgress.current =
+            true;
+
+          void (async () => {
+            try {
+              const data =
+                await reverseGeocode(
+                  latitude,
+                  longitude
+                );
+
+              const updatedLocation: UserLocation = {
+                latitude,
+                longitude,
+                address: data.address,
+                accuracy,
+              };
+
+              setLocation(
+                updatedLocation
+              );
+
+              saveCachedLocation(
+                updatedLocation
+              );
+            } catch (error) {
+              console.error(
+                "Reverse geocoding failed:",
+                error
+              );
+            } finally {
+              reverseGeocodeInProgress.current =
+                false;
+            }
+          })();
+        },
+
+        // ==================================================
+        // GPS ERROR
+        // ==================================================
+
+        (error) => {
+          console.error(
+            "Geolocation error:",
+            error
           );
 
+          // The current location can no longer be confirmed.
+          // Remove the cached location so we don't display
+          // a stale location.
+          localStorage.removeItem(
+            LOCATION_STORAGE_KEY
+          );
+
+          previousLocation.current = null;
+
+          setLocation(null);
+
+          setError(
+            "Unable to determine your current location."
+          );
+
+          setLoading(false);
+        },
+
         // ==================================================
-        // SAVE ACCEPTED GPS FIX
+        // GPS OPTIONS
         // ==================================================
 
-        previousLocation.current = {
-          latitude,
-          longitude,
-          accuracy,
-        };
-
-        // ==================================================
-        // UPDATE LOCATION
-        // ==================================================
-
-        setLocation({
-          latitude,
-          longitude,
-          address: data.address,
-        });
-
-        setError(null);
-      } catch (error) {
-        console.error(
-          "Location update failed:",
-          error
-        );
-
-        setError(
-          "Unable to determine your current location."
-        );
-      } finally {
-        reverseGeocodeInProgress.current = false;
-        setLoading(false);
-      }
-    },
-
-    // ==================================================
-    // GPS ERROR
-    // ==================================================
-
-    (error) => {
-      console.error(
-        "Geolocation error:",
-        error
+        {
+          enableHighAccuracy: true,
+          timeout: 30000,
+          maximumAge: 0,
+        }
       );
+  }, []);
 
-      setError(
-        "Unable to access your current location."
-      );
+  // ==================================================
+  // START LOCATION WATCHER
+  // ==================================================
 
-      setLoading(false);
-    },
-
-    // ==================================================
-    // GPS OPTIONS
-    // ==================================================
-
-    {
-      enableHighAccuracy: true,
-      timeout: 30000,
-      maximumAge: 0,
-    }
-  );
-
-
-}, []);
-
-// ==================================================
-// START LOCATION WATCHER
-// ==================================================
-
-useEffect(() => {
-startWatchingLocation();
-
-
-return () => {
-  stopWatchingLocation();
-};
-
-
-}, [
-startWatchingLocation,
-stopWatchingLocation,
-]);
-
-// ==================================================
-// APP VISIBILITY
-// ==================================================
-
-useEffect(() => {
-function handleVisibilityChange() {
-// ----------------------------------------------
-// App went into background
-// ----------------------------------------------
-
-
-  if (
-    document.visibilityState === "hidden"
-  ) {
-    console.log(
-      "App backgrounded — stopping GPS watcher."
-    );
-
-    stopWatchingLocation();
-
-    return;
-  }
-
-  // ----------------------------------------------
-  // App became active again
-  // ----------------------------------------------
-
-  if (
-    document.visibilityState === "visible"
-  ) {
-    console.log(
-      "App active — starting GPS watcher."
-    );
-
+  useEffect(() => {
     startWatchingLocation();
-  }
-}
 
-document.addEventListener(
-  "visibilitychange",
-  handleVisibilityChange
-);
+    return () => {
+      stopWatchingLocation();
+    };
+  }, [
+    startWatchingLocation,
+    stopWatchingLocation,
+  ]);
 
-return () => {
-  document.removeEventListener(
-    "visibilitychange",
-    handleVisibilityChange
-  );
-};
+  // ==================================================
+  // APP VISIBILITY
+  // ==================================================
 
+  useEffect(() => {
+    function handleVisibilityChange() {
+      // ----------------------------------------------
+      // App went into background
+      // ----------------------------------------------
 
-}, [
-startWatchingLocation,
-stopWatchingLocation,
-]);
+      if (
+        document.visibilityState === "hidden"
+      ) {
+        stopWatchingLocation();
 
-// ==================================================
-// RETURN
-// ==================================================
+        return;
+      }
 
-return {
-location,
-loading,
-error,
-};
+      // ----------------------------------------------
+      // App became active again
+      // ----------------------------------------------
+
+      if (
+        document.visibilityState === "visible"
+      ) {
+        startWatchingLocation();
+      }
+    }
+
+    document.addEventListener(
+      "visibilitychange",
+      handleVisibilityChange
+    );
+
+    return () => {
+      document.removeEventListener(
+        "visibilitychange",
+        handleVisibilityChange
+      );
+    };
+  }, [
+    startWatchingLocation,
+    stopWatchingLocation,
+  ]);
+
+  // ==================================================
+  // RETURN
+  // ==================================================
+
+  return {
+    location,
+    loading,
+    error,
+  };
 }

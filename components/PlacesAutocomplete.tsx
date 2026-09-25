@@ -338,9 +338,7 @@ export default function PlaceAutocomplete({
           items-center
           gap-3
           rounded-2xl
-          border
-          border-zinc-800
-          bg-zinc-950
+          bg-white/[0.20]
           px-4
           py-3
           text-left
@@ -358,10 +356,10 @@ export default function PlaceAutocomplete({
           className={
             query
               ? "min-w-0 flex-1 truncate text-white"
-              : "min-w-0 flex-1 truncate text-zinc-500"
+              : "min-w-0 flex-1 truncate font-semibold text-zinc-400"
           }
         >
-          {query || "Search destination..."}
+          {query || "Search destination"}
         </span>
 
       </button>

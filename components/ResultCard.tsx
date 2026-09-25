@@ -81,7 +81,7 @@ export default function ResultCard({
 }
 
   return (
-    <div className="space-y-5 rounded-3xl border border-zinc-800 bg-zinc-950 p-5 shadow-xl">
+    <div className="space-y-5 rounded-3xl border border border-white/[0.12] bg-white/[0.07] p-5 shadow-xl">
       {/* Close Button */}
       <button
           type="button"
@@ -112,7 +112,7 @@ export default function ResultCard({
       </div>
 
       {/* ROUTE */}
-      <div className="space-y-4 rounded-2xl border border-zinc-800 bg-[#12141C] p-4">
+      <div className="space-y-4 rounded-2xl  bg-white/[0.045] p-4">
 
         {/* FROM */}
         <div className="flex items-start gap-3">
@@ -196,7 +196,7 @@ export default function ResultCard({
       <div className="grid grid-cols-2 gap-3">
 
         {/* TRAVEL TIME */}
-        <div className="rounded-2xl border border-zinc-800 bg-[#12141C] p-4">
+        <div className="rounded-2xl bg-white/[0.045] p-4">
           
           <div className="flex items-center gap-3">
             <div className="rounded-2xl bg-blue-500/20 p-2">
@@ -220,7 +220,7 @@ export default function ResultCard({
         </div>
 
         {/* DISTANCE */}
-        <div className="rounded-2xl border border-zinc-800 bg-[#12141C] p-4">
+        <div className="rounded-2xl bg-white/[0.045] p-4">
           
           <div className="flex items-center gap-3">
             <div className="rounded-2xl bg-blue-500/20 p-2">
@@ -245,7 +245,7 @@ export default function ResultCard({
       </div>
 
       {/* TRAFFIC */}
-      <div className="flex items-center gap-3 rounded-2xl border border-zinc-800 bg-[#12141C] p-4">
+      <div className="flex items-center gap-3 rounded-2xl bg-white/[0.045] p-4">
 
         <AlertTriangle
           size={18}
