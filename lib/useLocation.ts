@@ -24,7 +24,7 @@ const MOVEMENT_THRESHOLD_METERS = 50;
 
 // Accept a new GPS fix if its accuracy improves
 // by at least this amount.
-const ACCURACY_IMPROVEMENT_METERS = 20;
+//const ACCURACY_IMPROVEMENT_METERS = 20;
 
 // --------------------------------------------------
 // DISTANCE CALCULATION
@@ -351,23 +351,23 @@ export function useLocation() {
               longitude
             );
 
-          const accuracyImproved =
+          /* const accuracyImproved =
             accuracy <
             previous.accuracy -
-              ACCURACY_IMPROVEMENT_METERS;
+              ACCURACY_IMPROVEMENT_METERS;*/
 
           const movedEnough =
             distance >=
             MOVEMENT_THRESHOLD_METERS;
 
-          // Ignore small GPS changes unless the
+          /* // Ignore small GPS changes unless the
           // new reading is substantially more accurate.
           if (
             !movedEnough &&
             !accuracyImproved
           ) {
             return;
-          }
+          } */
 
           // ==================================================
           // ACCEPT THE NEW GPS FIX

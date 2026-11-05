@@ -28,6 +28,7 @@ interface Props {
 
   routeInfo: {
     travelMinutes: number;
+    travelTimeLabel: string;
     distanceKm: number;
     trafficDelay: number;
     description: string;
@@ -126,7 +127,7 @@ export default function ResultCard({
             </div>
           </div>
 
-          
+
 
           <div className="min-w-0">
             <p className="text-xs text-zinc-500">
@@ -141,7 +142,7 @@ export default function ResultCard({
 
         {/* VIA */}
         <div className="flex items-start gap-3">
-          
+
           <div className="flex items-center gap-3">
             <div className="rounded-2xl bg-blue-500/20 p-2">
               <Car
@@ -151,7 +152,7 @@ export default function ResultCard({
             </div>
           </div>
 
-          
+
 
           <div className="min-w-0">
             <p className="text-xs text-zinc-500">
@@ -174,7 +175,7 @@ export default function ResultCard({
               />
             </div>
           </div>
-          
+
 
           <div className="min-w-0">
             <p className="text-xs text-zinc-500">
@@ -197,7 +198,7 @@ export default function ResultCard({
 
         {/* TRAVEL TIME */}
         <div className="rounded-2xl bg-white/[0.045] p-4">
-          
+
           <div className="flex items-center gap-3">
             <div className="rounded-2xl bg-blue-500/20 p-2">
               <Clock
@@ -206,22 +207,24 @@ export default function ResultCard({
               />
             </div>
           </div>
-          
-          
-          
+
+
+
 
           <p className="text-xs text-zinc-500">
             Travel time
           </p>
 
           <p className="font-semibold">
-            {routeInfo.travelMinutes} min
+            {mode === "arrive"
+              ? routeInfo.travelTimeLabel
+              : `${routeInfo.travelMinutes} min`}
           </p>
         </div>
 
         {/* DISTANCE */}
         <div className="rounded-2xl bg-white/[0.045] p-4">
-          
+
           <div className="flex items-center gap-3">
             <div className="rounded-2xl bg-blue-500/20 p-2">
               <Navigation
@@ -230,8 +233,8 @@ export default function ResultCard({
               />
             </div>
           </div>
-          
-          
+
+
 
           <p className="text-xs text-zinc-500">
             Distance
@@ -245,26 +248,28 @@ export default function ResultCard({
       </div>
 
       {/* TRAFFIC */}
-      <div className="flex items-center gap-3 rounded-2xl bg-white/[0.045] p-4">
+      {mode === "leaveNow" && (
+        <div className="flex items-center gap-3 rounded-2xl bg-white/[0.045] p-4">
 
-        <AlertTriangle
-          size={18}
-          className="shrink-0 text-yellow-400"
-        />
+          <AlertTriangle
+            size={18}
+            className="shrink-0 text-yellow-400"
+          />
 
-        <div>
-          <p className="font-medium">
-            {traffic.icon} {traffic.label}
-          </p>
+          <div>
+            <p className="font-medium">
+              {traffic.icon} {traffic.label}
+            </p>
 
-          <p className="text-sm text-zinc-400">
-            {routeInfo.trafficDelay > 0
-              ? `+${routeInfo.trafficDelay} min delay`
-              : "No major delays"}
-          </p>
+            <p className="text-sm text-zinc-400">
+              {routeInfo.trafficDelay > 0
+                ? `+${routeInfo.trafficDelay} min delay`
+                : "No major delays"}
+            </p>
+          </div>
+
         </div>
-
-      </div>
+      )}
 
       {/* WAZE */}
       <button

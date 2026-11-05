@@ -3,4 +3,6 @@ export interface PlaceSuggestion {
   mainText: string;
   secondaryText: string;
   fullText: string;
+  latitude: number;
+  longitude: number;
 }

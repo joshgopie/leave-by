@@ -107,6 +107,8 @@ export default function Home() {
       distanceKm: number;
       trafficDelay: number;
       description: string;
+      travelTimeLabel: string;
+      
     };
   } | null>(null);
 
@@ -125,6 +127,7 @@ export default function Home() {
       distanceKm: number;
       trafficDelay: number;
       description: string;
+      travelTimeLabel: string;
     };
   } | null>(null);
 
@@ -137,6 +140,7 @@ export default function Home() {
     distanceKm: 0,
     trafficDelay: 0,
     description: "",
+    travelTimeLabel: "",
   });
 
   // ==================================================
@@ -255,6 +259,7 @@ export default function Home() {
     // ------------------------------------------------
 
     let departureTime: string;
+    let arrivalTimeLocal = "";
 
     if (calculationMode === "leaveNow") {
       departureTime = new Date().toISOString();
@@ -344,8 +349,14 @@ export default function Home() {
       }
 
       departureTime =
-        requestedArrival.toISOString();
-    }
+          requestedArrival.toISOString();
+
+      const pad = (value: number) =>
+        String(value).padStart(2, "0");
+
+      arrivalTimeLocal =
+        `${year}-${pad(month)}-${pad(day)}T${pad(hours)}:${pad(minutes)}:00`;
+          }
 
     // ------------------------------------------------
     // BEGIN ROUTE CALCULATION
@@ -374,16 +385,27 @@ export default function Home() {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            origin: {
-              latitude: location.latitude,
-              longitude: location.longitude,
-            },
-            destinationPlaceId:
-              selectedDestination.placeId,
-            departureTime,
-            mode: calculationMode,
-          }),
+         body: JSON.stringify({
+          origin: {
+            latitude: location.latitude,
+            longitude: location.longitude,
+          },
+          destinationPlaceId:
+            selectedDestination.placeId,
+          departureTime,
+          mode: calculationMode,
+
+          destinationLatitude:
+            selectedDestination.latitude,
+          destinationLongitude:
+            selectedDestination.longitude,
+          destinationName:
+            selectedDestination.fullText,
+          arrivalTime:
+            calculationMode === "arrive"
+              ? arrivalTimeLocal
+              : undefined,
+        }),
         }
       );
 
@@ -412,194 +434,202 @@ export default function Home() {
       const data =
         await response.json();
 
-      // ------------------------------------------------
-      // VALIDATE GOOGLE RESPONSE
-      // ------------------------------------------------
+// --------------------------------------------------
+// PREPARE ROUTE INFORMATION
+// --------------------------------------------------
 
-      if (
-        !data.duration ||
-        !data.staticDuration
-      ) {
-        console.error(
-          "Invalid route response:",
-          data
-        );
+let trafficMinutes = 0;
+let trafficDelay = 0;
+let distanceKm = 0;
+let description = "";
+let travelTimeLabel = "";
 
-        setCalculationError(
-          "Google couldn't calculate a route for this request."
-        );
+// --------------------------------------------------
+// ARRIVE BY - SCRAPER RESPONSE
+// --------------------------------------------------
 
-        return;
-      }
+if (calculationMode === "arrive") {
+  const route = data.route;
 
-      // ------------------------------------------------
-      // CALCULATE TRAVEL TIME
-      // ------------------------------------------------
+  if (
+    !route?.leaveTime ||
+    !route?.typicalTime ||
+    !route?.distance
+  ) {
+    console.error(
+      "Invalid scraper response:",
+      data
+    );
 
-      const trafficSeconds = Number(
-        String(data.duration).replace(
-          "s",
-          ""
-        )
-      );
+    setCalculationError(
+      "Google couldn't calculate a route for this request."
+    );
 
-      const normalSeconds = Number(
-        String(data.staticDuration).replace(
-          "s",
-          ""
-        )
-      );
+    return;
+  }
 
-      const trafficMinutes = Math.ceil(
-        trafficSeconds / 60
-      );
+  // Remove "Typically" for display.
+  travelTimeLabel =
+    route.typicalTime.replace(
+      /^Typically\s+/i,
+      ""
+    ).trim();
 
-      const normalMinutes = Math.ceil(
-        normalSeconds / 60
-      );
+  // Extract the lower end of the typical-time range
+  // for the existing numeric travelMinutes field.
+  const firstRangeValue =
+    travelTimeLabel.split(/\s*[-–]\s*/)[0];
 
-      const trafficDelay = Math.max(
-        0,
-        trafficMinutes - normalMinutes
-      );
+  const timeParts = firstRangeValue.match(
+    /(?:(\d+)\s*hr)?\s*(?:(\d+)\s*min)?/i
+  );
 
-      // ------------------------------------------------
-      // CALCULATE RESULT
-      // ------------------------------------------------
+  trafficMinutes = timeParts
+    ? Number(timeParts[1] ?? 0) * 60 +
+      Number(timeParts[2] ?? 0)
+    : 0;
 
-      if (calculationMode === "arrive") {
-        const arrival = new Date(
-          `${selectedArrivalDate}T${selectedArrivalTime}:00`
-        );
+  distanceKm = Number.parseFloat(
+    route.distance
+  );
 
-        if (
-          Number.isNaN(arrival.getTime())
-        ) {
-          setCalculationError(
-            "The selected arrival date or time is invalid."
-          );
+  description = route.description ?? "";
 
-          return;
-        }
+  // Google does not provide a separate traffic delay
+  // through this scraper response.
+  trafficDelay = 0;
 
-        const leave = new Date(
-          arrival.getTime() -
-            trafficMinutes * 60000
-        );
+  const calculatedLeaveTime =
+    route.leaveTime.replace(
+      /^Leave around\s+/i,
+      ""
+    ).trim();
 
-        const calculatedLeaveTime =
-          leave.toLocaleTimeString([], {
-            hour: "numeric",
-            minute: "2-digit",
-          });
+  setLeaveTime(calculatedLeaveTime);
 
-        setLeaveTime(
-          calculatedLeaveTime
-        );
+  // Save Arrive By result for later restoration.
+  setLastArriveBy({
+    destinationPlaceId:
+      selectedDestination.placeId,
+    arrivalDate: selectedArrivalDate,
+    arrivalTime: selectedArrivalTime,
+    leaveTime: calculatedLeaveTime,
+    routeInfo: {
+      travelMinutes: trafficMinutes,
+      distanceKm,
+      trafficDelay,
+      description,
+      travelTimeLabel,
+    },
+  });
 
-        // Save Arrive By result for later
-        // restoration without another API call.
-        setLastArriveBy({
-          destinationPlaceId:
-            selectedDestination.placeId,
-          arrivalDate:
-            selectedArrivalDate,
-          arrivalTime:
-            selectedArrivalTime,
-          leaveTime:
-            calculatedLeaveTime,
-          routeInfo: {
-            travelMinutes:
-              trafficMinutes,
-            distanceKm: Number(
-              (
-                data.distanceMeters / 1000
-              ).toFixed(1)
-            ),
-            trafficDelay,
-            description:
-              data.description ?? "",
-          },
-        });
-      } else {
-        // ------------------------------------------------
-        // LEAVE NOW RESULT
-        // ------------------------------------------------
+} else {
 
-        const now = new Date(
-          departureTime
-        );
+  // ------------------------------------------------
+  // LEAVE NOW - EXISTING GOOGLE ROUTES RESPONSE
+  // ------------------------------------------------
 
-        if (
-          Number.isNaN(now.getTime())
-        ) {
-          setCalculationError(
-            "The current time could not be determined."
-          );
+  if (
+    !data.duration ||
+    !data.staticDuration
+  ) {
+    console.error(
+      "Invalid route response:",
+      data
+    );
 
-          return;
-        }
+    setCalculationError(
+      "Google couldn't calculate a route for this request."
+    );
 
-        const estimatedArrival =
-          new Date(
-            now.getTime() +
-              trafficMinutes * 60000
-          );
+    return;
+  }
 
-        const formattedEstimatedArrival =
-          estimatedArrival.toLocaleTimeString(
-            [],
-            {
-              hour: "numeric",
-              minute: "2-digit",
-            }
-          );
+  const trafficSeconds = Number(
+    String(data.duration).replace("s", "")
+  );
 
-        setEstimatedArrivalTime(
-          formattedEstimatedArrival
-        );
+  const normalSeconds = Number(
+    String(data.staticDuration).replace("s", "")
+  );
 
-        setLeaveTime("Now");
+  trafficMinutes = Math.ceil(
+    trafficSeconds / 60
+  );
 
-        // Save Leave Now result for later
-        // restoration without another API call.
-        setLastLeaveNow({
-          destinationPlaceId:
-            selectedDestination.placeId,
-          leaveTime: "Now",
-          estimatedArrivalTime:
-            formattedEstimatedArrival,
-          routeInfo: {
-            travelMinutes:
-              trafficMinutes,
-            distanceKm: Number(
-              (
-                data.distanceMeters / 1000
-              ).toFixed(1)
-            ),
-            trafficDelay,
-            description:
-              data.description ?? "",
-          },
-        });
-      }
+  const normalMinutes = Math.ceil(
+    normalSeconds / 60
+  );
 
-      // ------------------------------------------------
-      // SAVE CURRENT ROUTE INFORMATION
-      // ------------------------------------------------
+  trafficDelay = Math.max(
+    0,
+    trafficMinutes - normalMinutes
+  );
 
-      setRouteInfo({
-        travelMinutes:
-          trafficMinutes,
-        distanceKm: Number(
-          (
-            data.distanceMeters / 1000
-          ).toFixed(1)
-        ),
-        trafficDelay,
-        description:
-          data.description ?? "",
-      });
+  distanceKm = Number(
+    (data.distanceMeters / 1000).toFixed(1)
+  );
+
+  description = data.description ?? "";
+
+  // ------------------------------------------------
+  // LEAVE NOW RESULT
+  // ------------------------------------------------
+
+  const now = new Date(departureTime);
+
+  if (Number.isNaN(now.getTime())) {
+    setCalculationError(
+      "The current time could not be determined."
+    );
+
+    return;
+  }
+
+  const estimatedArrival = new Date(
+    now.getTime() + trafficMinutes * 60000
+  );
+
+  const formattedEstimatedArrival =
+    estimatedArrival.toLocaleTimeString([], {
+      hour: "numeric",
+      minute: "2-digit",
+    });
+
+  setEstimatedArrivalTime(
+    formattedEstimatedArrival
+  );
+
+  setLeaveTime("Now");
+
+  // Save Leave Now result for later restoration.
+  setLastLeaveNow({
+    destinationPlaceId:
+      selectedDestination.placeId,
+    leaveTime: "Now",
+    estimatedArrivalTime:
+      formattedEstimatedArrival,
+    routeInfo: {
+      travelMinutes: trafficMinutes,
+      distanceKm,
+      trafficDelay,
+      description,
+      travelTimeLabel: "",
+    },
+  });
+}
+
+// --------------------------------------------------
+// SAVE CURRENT ROUTE INFORMATION
+// --------------------------------------------------
+
+setRouteInfo({
+  travelMinutes: trafficMinutes,
+  distanceKm,
+  trafficDelay,
+  description,
+  travelTimeLabel,
+});
 
       // ------------------------------------------------
       // MARK CALCULATION AS COMPLETE
